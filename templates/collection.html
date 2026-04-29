@@ -1,0 +1,315 @@
+{% extends "base.html" %}
+
+{% block title %}Collection — Detective Conan TCG{% endblock %}
+
+{% block body %}
+<div class="flex pt-16" style="height:100vh;overflow:hidden;">
+    <main id="mainContent" class="flex-1 flex flex-col overflow-hidden"
+          style="margin-right:320px;transition:margin-right 0.3s ease;padding:24px 32px 0 32px;">
+
+        <!-- Heading + count -->
+        <div class="mb-6 flex items-end justify-between flex-shrink-0">
+            <div>
+                <h1 class="font-display text-4xl font-bold text-white tracking-tight mb-1">Collection</h1>
+                <p class="text-zinc-500 text-sm">All cards listed on official website.</p>
+            </div>
+            <div class="text-right">
+                <p class="text-zinc-500 text-xs font-display uppercase tracking-wider mb-0.5">Showing</p>
+                <p id="visibleCount" class="font-display text-2xl font-semibold text-cyan-400">—</p>
+            </div>
+        </div>
+
+        <!-- Sort -->
+        <div class="flex items-center gap-3 mb-4 flex-shrink-0">
+            <span class="text-xs font-display uppercase tracking-wider text-zinc-500">Sort:</span>
+            <button onclick="setSort('card_id')" id="sort-card_id"
+                    class="sort-btn px-3 py-1 rounded-full text-xs font-display uppercase tracking-wider transition-all
+                           bg-cyan-400/10 text-cyan-400 border border-cyan-400/30">Card ID</button>
+            <button onclick="setSort('card_num')" id="sort-card_num"
+                    class="sort-btn px-3 py-1 rounded-full text-xs font-display uppercase tracking-wider transition-all
+                           bg-[#201f21] text-zinc-400 border border-white/5 hover:text-zinc-200">Card Number</button>
+        </div>
+
+        <!-- Virtual scroll viewport -->
+        <div id="vs-viewport" class="overflow-y-auto rounded-xl flex-1" style="position:relative;min-height:0;">
+            <div id="vs-sentinel" style="position:absolute;top:0;left:0;width:1px;pointer-events:none;"></div>
+            <div id="vs-grid"     style="position:absolute;top:0;left:0;width:100%;"></div>
+        </div>
+        <div id="noResults" class="hidden text-center py-20 text-zinc-500 text-sm flex-shrink-0">
+            No cards match the current filters.
+        </div>
+    </main>
+</div>
+{% endblock %}
+
+{% block sidebar_package %}
+<div class="flex flex-col gap-2 flex-shrink-0">
+    <label class="text-[10px] font-display uppercase tracking-wider text-zinc-400">Package</label>
+    <select id="seriesFilter" onchange="applyFilters()"
+            class="bg-[#201f21] border border-white/5 rounded-lg px-3 py-2 text-sm
+                   focus:ring-1 focus:ring-cyan-400 outline-none text-[#e5e1e4]">
+        <option value="">All Packages</option>
+        {% for pkg in packages %}
+            <option value="{{ pkg.package_id }}">{{ pkg.name }}</option>
+        {% endfor %}
+    </select>
+</div>
+{% endblock %}
+
+{% block sidebar_ownership %}
+<div class="flex flex-col gap-2 flex-shrink-0">
+    <label class="text-[10px] font-display uppercase tracking-wider text-zinc-400">Ownership</label>
+    <div class="grid grid-cols-3 gap-2">
+        <button onclick="setOwnership('', this)" data-own=""
+                class="own-btn bg-cyan-400/10 text-cyan-400 border border-cyan-400/30
+                       py-2 rounded-lg text-xs font-display transition-all">All</button>
+        <button onclick="setOwnership('missing', this)" data-own="missing"
+                class="own-btn bg-[#201f21] text-zinc-400 hover:text-zinc-200
+                       py-2 rounded-lg text-xs font-display border border-white/5 transition-all">Missing</button>
+        <button onclick="setOwnership('collected', this)" data-own="collected"
+                class="own-btn bg-[#201f21] text-zinc-400 hover:text-zinc-200
+                       py-2 rounded-lg text-xs font-display border border-white/5 transition-all">1+</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block sidebar_stats %}
+<div class="mt-auto pt-6 border-t border-white/5">
+    <div class="bg-[#1c1b1d] p-4 rounded-xl border border-white/5">
+        <div class="flex items-center gap-3 mb-3">
+            <div class="w-9 h-9 rounded-full bg-cyan-400/10 flex items-center justify-center flex-shrink-0">
+                <span class="material-symbols-outlined text-cyan-400 text-[18px]">inventory_2</span>
+            </div>
+            <div>
+                <p class="text-[10px] text-zinc-500 font-display uppercase tracking-wider">Total Cards</p>
+                <p id="totalCardCount" class="font-display text-lg font-bold text-white">{{ cards|length }}</p>
+            </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2 pt-3 border-t border-white/5">
+            <div>
+                <p class="text-[10px] text-zinc-500 font-display uppercase tracking-wider mb-0.5">Collected</p>
+                <p id="collectedCount" class="font-display text-sm font-semibold text-cyan-400">—</p>
+            </div>
+            <div>
+                <p class="text-[10px] text-zinc-500 font-display uppercase tracking-wider mb-0.5">Missing</p>
+                <p id="missingCount" class="font-display text-sm font-semibold text-zinc-400">—</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Card data ─────────────────────────────────────────────────────────────────
+const ALL_CARDS = [
+{% for card in cards %}
+{
+    card_pk:    {{ card.card_pk }},
+    card_num:   {{ card.card_num | tojson }},
+    card_id:    {{ card.card_id | tojson }},
+    package_id: "{{ card.package_id }}",
+    type_id:    "{{ card.type_id }}",
+    rarity:     {{ card.rarity | tojson }},
+    color:      {{ card.color | tojson }},
+    image:      {{ (card.image or '') | tojson }},
+    thumb:      {% if card.image %}"{{ url_for('static', filename='thumbnails/' + card.image.rsplit('.', 1)[0] + '.webp') }}"{% else %}""{% endif %},
+    fullres:    {% if card.image %}"{{ url_for('static', filename='images/' + card.image) }}"{% else %}""{% endif %},
+    quantity:   {{ card.quantity }},
+    watched:    {{ 'true' if card.watched else 'false' }},
+},
+{% endfor %}
+];
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let filteredCards   = [...ALL_CARDS];
+let currentSort     = {{ current_sort | tojson }};
+let ownershipFilter = '';
+
+// ── Sort ──────────────────────────────────────────────────────────────────────
+function setSort(s) {
+    currentSort = s;
+    document.querySelectorAll('.sort-btn').forEach(b => {
+        const active = b.id === 'sort-' + s;
+        if (active) {
+            b.classList.remove('bg-[#201f21]','text-zinc-400','border-white/5','hover:text-zinc-200');
+            b.classList.add('bg-cyan-400/10','text-cyan-400','border-cyan-400/30');
+        } else {
+            b.classList.remove('bg-cyan-400/10','text-cyan-400','border-cyan-400/30');
+            b.classList.add('bg-[#201f21]','text-zinc-400','border-white/5','hover:text-zinc-200');
+        }
+    });
+    applyFilters();
+}
+
+// ── Ownership ─────────────────────────────────────────────────────────────────
+function setOwnership(val, btn) {
+    ownershipFilter = val;
+    document.querySelectorAll('.own-btn').forEach(b => {
+        const active = b.dataset.own === val;
+        if (active) {
+            b.classList.remove('bg-[#201f21]','text-zinc-400','border-white/5','hover:text-zinc-200');
+            b.classList.add('bg-cyan-400/10','text-cyan-400','border-cyan-400/30');
+        } else {
+            b.classList.remove('bg-cyan-400/10','text-cyan-400','border-cyan-400/30');
+            b.classList.add('bg-[#201f21]','text-zinc-400','border-white/5','hover:text-zinc-200');
+        }
+    });
+    applyFilters();
+}
+
+function onClearPageFilters() {
+    const sf = document.getElementById('seriesFilter');
+    if (sf) sf.value = '';
+    ownershipFilter = '';
+    document.querySelectorAll('.own-btn').forEach(b => {
+        const isAll = b.dataset.own === '';
+        if (isAll) {
+            b.classList.add('bg-cyan-400/10','text-cyan-400','border-cyan-400/30');
+            b.classList.remove('bg-[#201f21]','text-zinc-400','border-white/5','hover:text-zinc-200');
+        } else {
+            b.classList.remove('bg-cyan-400/10','text-cyan-400','border-cyan-400/30');
+            b.classList.add('bg-[#201f21]','text-zinc-400','border-white/5','hover:text-zinc-200');
+        }
+    });
+}
+
+// ── Filter + sort ─────────────────────────────────────────────────────────────
+function applyFilters() {
+    const search = (document.getElementById('searchFilter').value || '').toLowerCase();
+    const pkgId  = (document.getElementById('seriesFilter').value || '');
+
+    filteredCards = ALL_CARDS.filter(c => {
+        if (pkgId && c.package_id !== pkgId) return false;
+        if (filterSets.type   !== null && !filterSets.type.has(c.type_id))             return false;
+        if (filterSets.rarity !== null && !filterSets.rarity.has(c.rarity))            return false;
+        if (filterSets.color  !== null && !c.color.split('').some(ch => filterSets.color.has(ch))) return false;
+        if (search && !c.card_id.toLowerCase().includes(search) && !c.card_num.toLowerCase().includes(search)) return false;
+        if (ownershipFilter === 'missing'   && c.quantity > 0)  return false;
+        if (ownershipFilter === 'collected' && c.quantity === 0) return false;
+        return true;
+    });
+
+    if (currentSort === 'card_num') filteredCards.sort((a, b) => a.card_num.localeCompare(b.card_num));
+
+    // Stats
+    const collected = filteredCards.filter(c => c.quantity > 0).length;
+    const missing   = filteredCards.filter(c => c.quantity === 0).length;
+    document.getElementById('visibleCount').textContent   = filteredCards.length.toLocaleString();
+    document.getElementById('collectedCount').textContent = collected.toLocaleString();
+    document.getElementById('missingCount').textContent   = missing.toLocaleString();
+    document.getElementById('noResults').classList.toggle('hidden', filteredCards.length > 0);
+    document.getElementById('vs-viewport').style.display = filteredCards.length === 0 ? 'none' : '';
+
+    vs.reset();
+
+    const p = new URLSearchParams();
+    if (pkgId)           p.set('series', pkgId);
+    if (search)          p.set('search', search);
+    if (ownershipFilter) p.set('quantity', ownershipFilter);
+    if (currentSort !== 'card_id') p.set('sort', currentSort);
+    window.history.replaceState({}, '', p.toString() ? `/?${p}` : '/');
+}
+
+// ── Card HTML ─────────────────────────────────────────────────────────────────
+function buildCardHTML(c, idx) {
+    const rc      = RARITY_STYLE[c.rarity] || 'bg-zinc-800 text-zinc-400 border-zinc-600/20';
+    const eyeFill = c.watched ? 'fill-icon text-cyan-400' : 'text-zinc-500';
+    const eyeOp   = c.watched ? '1' : '0.35';
+    const img     = c.thumb
+        ? `<img data-src="${c.thumb}" data-fullres="${c.fullres}" alt="Card ${c.card_id}"
+                class="lazy cursor-zoom-in"
+                style="display:block;width:${INNER_W}px;height:${IMG_H}px;object-fit:cover;"
+                onclick="openLightbox(this)" onerror="this.style.display='none'">`
+        : `<span style="color:#52525b;font-size:11px;">No Image</span>`;
+    return `
+    <div class="vc-card group flex flex-col bg-[#1c1b1d] rounded-xl border border-white/5
+                hover:border-cyan-400/40 transition-colors duration-200"
+         style="width:${CARD_W}px;height:${CARD_H}px;box-sizing:border-box;padding:4px;overflow:hidden;"
+         data-card-num="${c.card_num}">
+        <div class="rounded-lg border border-white/10 overflow-hidden flex-shrink-0"
+             style="width:${INNER_W}px;height:${IMG_H}px;background:#18181b;">${img}</div>
+        <div style="padding:5px 4px 3px;flex-shrink:0;">
+            <div class="flex justify-between items-baseline" style="margin-bottom:4px;">
+                <span class="font-display font-bold text-cyan-400"
+                      style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;">${c.card_id}</span>
+                <span class="font-display text-zinc-500" style="font-size:10px;">${c.card_num}</span>
+            </div>
+            <div class="flex justify-between items-center">
+                <span class="inline-flex font-display font-bold uppercase rounded-full border ${rc}"
+                      style="font-size:9px;padding:1px 6px;">${c.rarity}</span>
+                <div class="flex items-center" style="gap:3px;height:24px;">
+                    <button tabindex="-1" onclick="stepQty('${c.card_num}',-1,this)"
+                            class="flex-shrink-0 flex items-center justify-center rounded bg-[#353437] border border-white/10 hover:border-cyan-400/40 text-zinc-300 hover:text-cyan-400 transition-colors"
+                            style="width:20px;height:24px;font-size:15px;line-height:1;padding:0;">−</button>
+                    <input type="number" class="qty-input text-center font-display text-[#e5e1e4] bg-[#353437] border border-white/10 rounded focus:ring-1 focus:ring-cyan-400 outline-none"
+                           style="width:34px;height:24px;padding:0;font-size:12px;"
+                           value="${c.quantity}" min="0" tabindex="${idx+1}"
+                           onchange="onQuantityChange('${c.card_num}',this.value,this)">
+                    <button tabindex="-1" onclick="stepQty('${c.card_num}',+1,this)"
+                            class="flex-shrink-0 flex items-center justify-center rounded bg-[#353437] border border-white/10 hover:border-cyan-400/40 text-zinc-300 hover:text-cyan-400 transition-colors"
+                            style="width:20px;height:24px;font-size:15px;line-height:1;padding:0;">+</button>
+                    <button tabindex="-1" onclick="toggleWatch('${c.card_num}',this)"
+                            class="watch-btn flex-shrink-0 flex items-center justify-center transition-colors"
+                            style="width:22px;height:24px;padding:0;opacity:${eyeOp};"
+                            title="${c.watched?'Unwatch':'Watch'}">
+                        <span class="material-symbols-outlined ${eyeFill}" style="font-size:16px;line-height:1;display:block;">visibility</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>`;
+}
+
+// ── Virtual scroller ──────────────────────────────────────────────────────────
+const vs = makeVirtualScroller('vs-viewport','vs-sentinel','vs-grid', () => filteredCards);
+
+// ── Quantity ──────────────────────────────────────────────────────────────────
+function stepQty(cardNum, delta, btn) {
+    const input = btn.closest('.vc-card').querySelector('.qty-input');
+    const val   = Math.max(0, (parseInt(input.value) || 0) + delta);
+    input.value = val;
+    onQuantityChange(cardNum, val, input);
+}
+function onQuantityChange(cardNum, value, inputEl) {
+    const qty = Math.max(0, parseInt(value) || 0);
+    inputEl.value = qty;
+    const c = ALL_CARDS.find(x => x.card_num === cardNum);
+    if (c) c.quantity = qty;
+    fetch('/update_card_quantity', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ card_num: cardNum, quantity: qty })
+    }).then(r=>r.json()).then(d=>{ if(!d.success) console.error(d.message); }).catch(console.error);
+}
+
+// ── Watch toggle ──────────────────────────────────────────────────────────────
+function toggleWatch(cardNum, btn) {
+    const c = ALL_CARDS.find(x => x.card_num === cardNum);
+    if (!c) return;
+    c.watched = !c.watched;
+    const icon = btn.querySelector('.material-symbols-outlined');
+    if (c.watched) {
+        icon.classList.add('fill-icon','text-cyan-400'); icon.classList.remove('text-zinc-500');
+        btn.style.opacity = '1';
+    } else {
+        icon.classList.remove('fill-icon','text-cyan-400'); icon.classList.add('text-zinc-500');
+        btn.style.opacity = '0.35';
+    }
+    fetch('/toggle_watch', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ card_num: cardNum, watched: c.watched })
+    }).then(r=>r.json()).then(d=>{ if(!d.success){ c.watched=!c.watched; console.error(d.message); } }).catch(console.error);
+}
+
+// ── Page init (called by base DOMContentLoaded) ───────────────────────────────
+function pageInit() {
+    const p = new URLSearchParams(window.location.search);
+    if (p.get('series')) document.getElementById('seriesFilter').value = p.get('series');
+    if (p.get('search')) document.getElementById('searchFilter').value = p.get('search');
+    if (p.get('quantity')) setOwnership(p.get('quantity'),
+        document.querySelector(`.own-btn[data-own="${p.get('quantity')}"]`));
+    if (p.get('sort')) setSort(p.get('sort'));
+    else applyFilters();
+}
+</script>
+{% endblock %}

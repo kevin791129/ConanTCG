@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en" class="dark" style="height:100%;overflow:hidden;">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Detective Conan TCG{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/cards.css') }}">
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "surface":                  "#131315",
+                        "surface-container-low":    "#1c1b1d",
+                        "surface-container":        "#201f21",
+                        "surface-container-high":   "#2a2a2c",
+                        "surface-container-highest":"#353437",
+                        "on-surface":               "#e5e1e4",
+                        "on-surface-variant":       "#b9cacb",
+                        "outline":                  "#849495",
+                        "outline-variant":          "#3b494b",
+                        "primary":                  "#dbfcff",
+                        "primary-container":        "#00f0ff",
+                        "on-primary":               "#00363a",
+                        "secondary":                "#e5b4ff",
+                        "secondary-container":      "#ad00fe",
+                        "on-secondary":             "#4f0077",
+                        "tertiary-fixed-dim":       "#eac324",
+                    },
+                    fontFamily: {
+                        display: ["Space Grotesk", "sans-serif"],
+                        body:    ["DM Sans", "sans-serif"],
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        * { font-family: 'DM Sans', sans-serif; }
+        h1, h2, h3, .font-display { font-family: 'Space Grotesk', sans-serif; }
+        .material-symbols-outlined {
+            font-family: 'Material Symbols Outlined';
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            font-style: normal; font-weight: normal; font-size: 24px; line-height: 1;
+            display: inline-block; white-space: nowrap; -webkit-font-smoothing: antialiased;
+        }
+        .fill-icon { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #3b494b; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #00dbe9; }
+    </style>
+    {% block head %}{% endblock %}
+</head>
+<body class="bg-[#0A0A0C] text-[#e5e1e4]" style="height:100vh;overflow:hidden;">
+
+<!-- Top App Bar -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-8 h-16
+               bg-[#0A0A0C]/90 backdrop-blur-lg border-b border-white/10
+               shadow-[0_0_24px_rgba(0,240,255,0.06)]">
+    <div class="font-display text-xl font-black text-cyan-400 uppercase tracking-widest select-none">
+        Detective Conan TCG
+    </div>
+    <nav class="flex items-center gap-1 h-full">
+        <a href="{{ url_for('collection.display_cards') }}"
+           class="font-display uppercase tracking-wider text-sm px-4 h-full flex items-center border-b-2 transition-all
+                  {% if request.endpoint == 'display_cards' %}text-cyan-400 border-cyan-400
+                  {% else %}text-zinc-400 border-transparent hover:text-cyan-300 hover:border-cyan-300/40{% endif %}">
+            Collection
+        </a>
+        <a href="{{ url_for('collection.display_watchlist') }}"
+           class="font-display uppercase tracking-wider text-sm px-4 h-full flex items-center border-b-2 transition-all
+                  {% if request.endpoint == 'display_watchlist' %}text-cyan-400 border-cyan-400
+                  {% else %}text-zinc-400 border-transparent hover:text-cyan-300 hover:border-cyan-300/40{% endif %}">
+            Watchlist
+        </a>
+    </nav>
+</header>
+
+{% block body %}{% endblock %}
+
+<!-- Sidebar toggle button -->
+<button id="sidebarToggle" onclick="toggleSidebar()" title="Toggle filters"
+        class="fixed z-50 top-1/2 -translate-y-1/2 bg-[#1c1b1d] border border-white/10 border-r-0
+               rounded-l-lg px-1 py-3 text-zinc-400 hover:text-cyan-400 hover:bg-[#201f21]
+               transition-all duration-300"
+        style="right:320px;">
+    <span id="sidebarToggleIcon" class="material-symbols-outlined text-[18px]"
+          style="display:block;transition:transform 0.3s;">chevron_right</span>
+</button>
+
+<!-- Sidebar -->
+<aside id="filterSidebar"
+       class="fixed right-0 top-16 w-80 bg-[#0A0A0C] border-l border-white/10
+              flex flex-col py-6 px-4 gap-4 overflow-y-auto z-40
+              transition-transform duration-300 ease-in-out"
+       style="height:calc(100vh - 4rem);">
+
+    <!-- Header -->
+    <div class="flex-shrink-0">
+        <div class="flex justify-between items-center mb-1">
+            <h2 class="font-display text-base font-bold text-white">Filter View</h2>
+            <button onclick="clearFilters()"
+                    class="text-[10px] font-display uppercase tracking-wider text-cyan-400 hover:text-cyan-300 transition-colors">
+                Clear All
+            </button>
+        </div>
+        <p class="font-display text-xs text-zinc-500">Refine the list</p>
+    </div>
+
+    <!-- Search -->
+    <div class="relative flex-shrink-0">
+        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-[20px]">search</span>
+        <input id="searchFilter" type="text" placeholder="Search ID or number…"
+               oninput="applyFilters()"
+               class="w-full bg-[#201f21] border border-white/5 rounded-lg pl-10 pr-3 py-2
+                      text-sm focus:ring-1 focus:ring-cyan-400 outline-none text-[#e5e1e4] placeholder-zinc-600"/>
+    </div>
+
+    <!-- Package -->
+    {% block sidebar_package %}{% endblock %}
+
+    <!-- Type -->
+    <div class="flex flex-col gap-2 flex-shrink-0">
+        <label class="text-[10px] font-display uppercase tracking-wider text-zinc-400">Type</label>
+        <div class="flex flex-wrap gap-1.5" id="typeFilters">
+            {% for t in types %}
+            <button onclick="togglePillFilter('type', '{{ t.type_id }}', this)"
+                    data-type-id="{{ t.type_id }}"
+                    class="filter-pill type-pill px-2.5 py-1 rounded-full text-xs font-display transition-all
+                           bg-cyan-400/10 text-cyan-400 border border-cyan-400/30">
+                {{ t.name }}
+            </button>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Rarity -->
+    <div class="flex flex-col gap-2 flex-shrink-0">
+        <label class="text-[10px] font-display uppercase tracking-wider text-zinc-400">Rarity</label>
+        <div class="flex flex-wrap gap-1.5" id="rarityFilters">
+            {% for r in rarities %}
+            <button onclick="togglePillFilter('rarity', '{{ r.name }}', this)"
+                    data-rarity="{{ r.name }}"
+                    class="filter-pill rarity-pill px-2.5 py-1 rounded-full text-xs font-display transition-all
+                           bg-cyan-400/10 text-cyan-400 border border-cyan-400/30">
+                {{ r.name }}
+            </button>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Color -->
+    <div class="flex flex-col gap-2 flex-shrink-0">
+        <label class="text-[10px] font-display uppercase tracking-wider text-zinc-400">Color</label>
+        <div class="flex flex-wrap gap-1.5" id="colorFilters">
+            {% for clr in colors %}
+            <button onclick="togglePillFilter('color', '{{ clr.name }}', this)"
+                    data-color="{{ clr.name }}"
+                    class="filter-pill color-pill px-2.5 py-1 rounded-full text-xs font-display transition-all
+                           bg-cyan-400/10 text-cyan-400 border border-cyan-400/30">
+                {{ clr.name }}
+            </button>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Ownership (collection only) -->
+    {% block sidebar_ownership %}{% endblock %}
+
+    <!-- Stats footer -->
+    {% block sidebar_stats %}{% endblock %}
+
+</aside>
+
+<!-- Lightbox -->
+<div id="lightboxOverlay" style="display:none;"
+     class="fixed inset-0 bg-black/90 z-[9999] flex justify-center items-center cursor-zoom-out backdrop-blur-sm"
+     onclick="closeLightbox()">
+    <img id="lightboxImg" src="" alt="Card enlarged view"
+         class="max-w-[90vw] max-h-[90vh] object-contain rounded-[32px] shadow-[0_8px_40px_rgba(0,240,255,0.15)] cursor-default"
+         onclick="event.stopPropagation()">
+</div>
+
+<script>
+// ── Lightbox ──────────────────────────────────────────────────────────────────
+function openLightbox(imgEl) {
+    const src = imgEl.dataset.fullres;
+    if (!src) return;
+    const lb = document.getElementById('lightboxImg');
+    lb.src = src; lb.alt = imgEl.alt;
+    document.getElementById('lightboxOverlay').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+function closeLightbox() {
+    document.getElementById('lightboxOverlay').style.display = 'none';
+    document.getElementById('lightboxImg').src = '';
+    document.body.style.overflow = '';
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+
+// ── Sidebar toggle ────────────────────────────────────────────────────────────
+let sidebarOpen = true;
+function toggleSidebar() {
+    sidebarOpen = !sidebarOpen;
+    const sidebar = document.getElementById('filterSidebar');
+    const main    = document.getElementById('mainContent');
+    const btn     = document.getElementById('sidebarToggle');
+    const icon    = document.getElementById('sidebarToggleIcon');
+    if (sidebarOpen) {
+        sidebar.style.transform = 'translateX(0)';
+        main.style.marginRight  = '320px';
+        btn.style.right         = '320px';
+        icon.style.transform    = 'rotate(0deg)';
+    } else {
+        sidebar.style.transform = 'translateX(100%)';
+        main.style.marginRight  = '0';
+        btn.style.right         = '0';
+        icon.style.transform    = 'rotate(180deg)';
+    }
+    setTimeout(() => requestAnimationFrame(() => { if (typeof vs !== 'undefined') vs.render(); }), 310);
+}
+
+// ── Shared pill filter helpers ────────────────────────────────────────────────
+// filterSets: keyed by filter name, null = all selected
+const filterSets = { type: null, rarity: null, color: null };
+// allIds: keyed by filter name, populated on DOMContentLoaded
+const allFilterIds = { type: new Set(), rarity: new Set(), color: new Set() };
+
+// pill attr name per filter key
+const PILL_ATTR = { type: 'typeId', rarity: 'rarity', color: 'color' };
+const PILL_CLASS = { type: 'type-pill', rarity: 'rarity-pill', color: 'color-pill' };
+
+function setPillActive(btn, active) {
+    if (active) {
+        btn.classList.remove('bg-[#201f21]','text-zinc-400','border-white/5','hover:text-zinc-200');
+        btn.classList.add('bg-cyan-400/10','text-cyan-400','border-cyan-400/30');
+    } else {
+        btn.classList.remove('bg-cyan-400/10','text-cyan-400','border-cyan-400/30');
+        btn.classList.add('bg-[#201f21]','text-zinc-400','border-white/5','hover:text-zinc-200');
+    }
+}
+
+function togglePillFilter(filterKey, value, btn) {
+    const allIds = allFilterIds[filterKey];
+    let active   = filterSets[filterKey];
+
+    if (active === null) {
+        // All selected → deselect just this one
+        active = new Set(allIds);
+        active.delete(value);
+        filterSets[filterKey] = active;
+        setPillActive(btn, false);
+    } else {
+        if (active.has(value)) {
+            if (active.size === 1) return; // prevent deselecting last
+            active.delete(value);
+            setPillActive(btn, false);
+        } else {
+            active.add(value);
+            setPillActive(btn, true);
+        }
+        // All selected again → revert to null
+        if (active.size === allIds.size) {
+            filterSets[filterKey] = null;
+            document.querySelectorAll('.' + PILL_CLASS[filterKey]).forEach(b => setPillActive(b, true));
+        }
+    }
+    applyFilters();
+}
+
+function clearFilters() {
+    // Reset all pill groups
+    ['type','rarity','color'].forEach(key => {
+        filterSets[key] = null;
+        document.querySelectorAll('.' + PILL_CLASS[key]).forEach(b => setPillActive(b, true));
+    });
+    // Reset search
+    const sf = document.getElementById('searchFilter');
+    if (sf) sf.value = '';
+    // Reset page-specific filters (ownership, package) via optional hook
+    if (typeof onClearPageFilters === 'function') onClearPageFilters();
+    applyFilters();
+}
+
+// ── Shared card dimensions (used by both pages) ───────────────────────────────
+const CARD_W  = 220;
+const INNER_W = CARD_W - 8;
+const IMG_H   = Math.round(INNER_W * 1000 / 716);
+const INFO_H  = 60;
+const CARD_H  = IMG_H + INFO_H + 8;
+const GRID_GAP = 16;
+const GRID_PAD = 16;
+
+// ── Shared rarity style map ───────────────────────────────────────────────────
+const RARITY_STYLE = {
+    D:'bg-[#1a2a1a] text-[#7bed9f] border-[#7bed9f]/20',
+    C:'bg-[#1a2a1a] text-[#7bed9f] border-[#7bed9f]/20',
+    CP:'bg-[#1a2a1a] text-[#7bed9f] border-[#7bed9f]/20',
+    CP2:'bg-[#1a2a1a] text-[#7bed9f] border-[#7bed9f]/20',
+    R:'bg-[#0d1f2e] text-[#45b7d1] border-[#45b7d1]/20',
+    RP:'bg-[#0d1f2e] text-[#45b7d1] border-[#45b7d1]/20',
+    SR:'bg-[#2e0d0d] text-[#ff6b6b] border-[#ff4757]/20',
+    SRP:'bg-[#2e0d0d] text-yellow-400 border-[#ff4757]/20',
+    SRCP:'bg-[#2e0d0d] text-yellow-400 border-[#ff4757]/20',
+    MR:'bg-[#2e0d0d] text-[#ff6b6b] border-[#ff4757]/20',
+    MRP:'bg-[#2e0d0d] text-yellow-400 border-[#ff4757]/20',
+    MRCP:'bg-[#1a0a2e] text-cyan-400 border-cyan-400/30',
+    PR:'bg-[#0d0d2e] text-[#a29bfe] border-[#3742fa]/30',
+    SEC:'bg-[#160d2e] text-yellow-300 border-[#5f27cd]/30',
+};
+
+// ── Shared virtual scroller factory ──────────────────────────────────────────
+// Returns { render, reset } bound to the given viewport/sentinel/grid IDs.
+// getCards()      → current filtered array to render
+// buildCardHTML() → must be defined by the page
+function makeVirtualScroller(viewportId, sentinelId, gridId, getCards) {
+    const viewport = document.getElementById(viewportId);
+    const sentinel = document.getElementById(sentinelId);
+    const grid     = document.getElementById(gridId);
+
+    const imgObserver = new IntersectionObserver((entries, obs) => {
+        entries.forEach(entry => {
+            if (!entry.isIntersecting) return;
+            const img = entry.target;
+            if (img.dataset.src) { img.src = img.dataset.src; delete img.dataset.src; }
+            obs.unobserve(img);
+        });
+    }, { root: viewport, rootMargin: '600px' });
+
+    const rendered = new Map();
+
+    function calcCols() {
+        return Math.max(1, Math.floor((viewport.clientWidth - GRID_PAD * 2 + GRID_GAP) / (CARD_W + GRID_GAP)));
+    }
+    function calcOffsetX(cols) {
+        return Math.max(GRID_PAD, Math.floor((viewport.clientWidth - (cols * CARD_W + (cols-1) * GRID_GAP)) / 2));
+    }
+    function position(el, row, col, offsetX) {
+        el.style.cssText = `position:absolute;top:${GRID_PAD+row*(CARD_H+GRID_GAP)}px;left:${offsetX+col*(CARD_W+GRID_GAP)}px;width:${CARD_W}px;height:${CARD_H}px;`;
+    }
+
+    function render() {
+        const cards   = getCards();
+        const cols    = calcCols();
+        const offsetX = calcOffsetX(cols);
+        const rowH    = CARD_H + GRID_GAP;
+        const rows    = Math.ceil(cards.length / cols);
+        sentinel.style.height = (rows * rowH + GRID_PAD * 2) + 'px';
+
+        if (!cards.length) { [...rendered.values()].forEach(el => el.remove()); rendered.clear(); return; }
+
+        const scrollTop = viewport.scrollTop;
+        const viewH     = viewport.clientHeight;
+        const startRow  = Math.max(0, Math.floor((scrollTop - GRID_PAD) / rowH) - 1);
+        const endRow    = Math.min(rows - 1, Math.ceil((scrollTop + viewH - GRID_PAD) / rowH) + 1);
+        const startIdx  = startRow * cols;
+        const endIdx    = Math.min(cards.length - 1, (endRow + 1) * cols - 1);
+
+        const needed = new Set();
+        for (let i = startIdx; i <= endIdx; i++) needed.add(i);
+
+        for (const [idx, el] of rendered) {
+            if (!needed.has(idx)) { el.remove(); rendered.delete(idx); }
+        }
+        for (let i = startIdx; i <= endIdx; i++) {
+            const c   = cards[i];
+            const row = Math.floor(i / cols);
+            const col = i % cols;
+            if (rendered.has(i)) { position(rendered.get(i), row, col, offsetX); continue; }
+            const wrapper = document.createElement('div');
+            position(wrapper, row, col, offsetX);
+            wrapper.dataset.idx = i;
+            wrapper.innerHTML = buildCardHTML(c, i);
+            grid.appendChild(wrapper);
+            rendered.set(i, wrapper);
+            wrapper.querySelectorAll('img.lazy').forEach(img => imgObserver.observe(img));
+        }
+    }
+
+    function reset() {
+        [...rendered.values()].forEach(el => el.remove());
+        rendered.clear();
+        viewport.scrollTop = 0;
+        render();
+    }
+
+    viewport.addEventListener('scroll', render, { passive: true });
+    let rt;
+    window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => render(), 120); });
+
+    return { render, reset };
+}
+
+// ── Init shared filter state on DOM ready ─────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    // Populate allFilterIds from rendered pills
+    document.querySelectorAll('.type-pill').forEach(b => allFilterIds.type.add(b.dataset.typeId));
+    document.querySelectorAll('.rarity-pill').forEach(b => allFilterIds.rarity.add(b.dataset.rarity));
+    document.querySelectorAll('.color-pill').forEach(b => allFilterIds.color.add(b.dataset.color));
+    // Page-specific init
+    if (typeof pageInit === 'function') pageInit();
+});
+</script>
+
+{% block scripts %}{% endblock %}
+
+</body>
+</html>

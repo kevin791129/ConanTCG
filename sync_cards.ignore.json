@@ -1,0 +1,68 @@
+{
+  "rules": [
+    {
+      "table": "card_base",
+      "primary_key": {
+        "name": "card_id",
+        "value": "0584"
+      },
+      "field": "categories"
+    },
+    {
+      "table": "card_base",
+      "primary_key": {
+        "name": "card_id",
+        "value": "0723"
+      },
+      "field": "colors"
+    },
+    {
+      "table": "card_base",
+      "primary_key": {
+        "name": "card_id",
+        "value": "0724"
+      },
+      "field": "colors"
+    },
+    {
+      "table": "card_base",
+      "primary_key": {
+        "name": "card_id",
+        "value": "0725"
+      },
+      "field": "colors"
+    },
+    {
+      "table": "card_base",
+      "primary_key": {
+        "name": "card_id",
+        "value": "0726"
+      },
+      "field": "colors"
+    },
+    {
+      "table": "card_base",
+      "primary_key": {
+        "name": "card_id",
+        "value": "P067"
+      },
+      "field": "lp"
+    },
+    {
+      "table": "card",
+      "primary_key": {
+        "name": "card_num",
+        "value": "B09056"
+      },
+      "field": "feature"
+    },
+    {
+      "table": "card",
+      "primary_key": {
+        "name": "card_num",
+        "value": "B09056P"
+      },
+      "field": "feature"
+    }
+  ]
+}

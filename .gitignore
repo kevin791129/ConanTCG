@@ -1,0 +1,19 @@
+# Card images
+static/images/*
+static/thumbnails/*
+
+# Database and data
+*db
+*.pkl
+*conan_cards.pkl
+
+# Notebook files
+*.ipynb
+
+# Environment
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
