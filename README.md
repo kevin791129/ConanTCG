@@ -1,6 +1,6 @@
 # Detective Conan Card Game — Collection Tracker
 
-A full-stack personal collection tracker for the [Detective Conan Trading Card Game](https://www.takaratomy.co.jp/products/conan-cardgame/cardlist). Scrapes card data from the official Takara Tomy site, stores it in a normalized SQLite database, and serves it through a Flask web app with filtering, quantity tracking, and a personal watchlist.
+A full-stack personal collection tracker for the [Detective Conan Trading Card Game](https://www.takaratomy.co.jp/products/conan-cardgame/cardlist). Scrapes card data from the official Takara Tomy site, stores it in a normalized SQLite database, and serves it through a Flask web app with filtering, quantity tracking, a personal watchlist, and a natural language AI query interface.
 
 ---
 
@@ -13,13 +13,14 @@ A full-stack personal collection tracker for the [Detective Conan Trading Card G
 - Flask web app with virtual-scrolling card grid
 - Per-card quantity tracking and personal watchlist
 - Thumbnail generation for fast page loads
+- Agentic AI query interface — ask questions in plain English, the agent runs multiple queries as needed and returns a synthesized answer
 
 ---
 
 ## Project Structure
 
 ```
-conan-card-tracker/
+ConanTCG/
 ├── run.py                      # App entrypoint
 ├── .env                        # Local config (gitignored)
 ├── .env.example                # Config template
@@ -30,19 +31,29 @@ conan-card-tracker/
 │   ├── __init__.py             # Flask app factory
 │   ├── db.py                   # Request-scoped DB connection
 │   ├── queries.py              # SQL queries
-│   └── routes/
-│       ├── collection.py       # Collection and watchlist pages
-│       └── api.py              # JSON API endpoints
+│   ├── routes/
+│   │   ├── collection.py       # Collection and watchlist pages
+│   │   ├── api.py              # JSON API endpoints
+│   │   └── ai.py               # AI query page and endpoints
+│   └── ai/
+│       ├── prompt.py           # System prompt and schema description
+│       ├── pipeline.py         # Agentic Text-to-SQL pipeline
+│       └── providers/
+│           ├── base.py         # Abstract provider interface
+│           ├── anthropic.py    # Anthropic provider
+│           └── gemini.py       # Google Gemini provider
 │
 ├── scripts/
 │   ├── create_database.py      # Initialize the SQLite database
 │   ├── sync_cards.py           # Scraper and card importer
-│   └── set_sort_orders.py      # Set filter sort orders
+│   ├── set_sort_orders.py      # Set filter sort orders
+│   └── create_ai_query_log.py  # Initialize the AI query log database
 │
 ├── templates/
 │   ├── base.html
 │   ├── collection.html
-│   └── watchlist.html
+│   ├── watchlist.html
+│   └── ai.html                 # Natural language query page
 │
 └── static/
     ├── css/
@@ -70,7 +81,7 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Edit `.env` if you want a custom database path.
+Edit `.env` with your database paths and API keys. See [Configuration](#configuration) below.
 
 ### 3. Initialize the database
 
@@ -78,7 +89,13 @@ Edit `.env` if you want a custom database path.
 python scripts/create_database.py
 ```
 
-### 4. Set filter sort orders (optional)
+### 4. Initialize the AI query log database
+
+```bash
+python scripts/create_ai_query_log.py
+```
+
+### 5. Set filter sort orders (optional)
 
 Edit `scripts/set_sort_orders.py` to define your preferred order for card types, rarities, and colors, then run:
 
@@ -86,7 +103,7 @@ Edit `scripts/set_sort_orders.py` to define your preferred order for card types,
 python scripts/set_sort_orders.py
 ```
 
-### 5. Scrape card data
+### 6. Scrape card data
 
 Preview changes before writing to the database:
 
@@ -100,7 +117,7 @@ Scrape and commit directly:
 python scripts/sync_cards.py
 ```
 
-### 6. Run the app
+### 7. Run the app
 
 ```bash
 python run.py
@@ -118,7 +135,46 @@ When new cards are released, re-run the sync script to pull the latest data from
 python scripts/sync_cards.py --preview
 ```
 
-It's recommended to always use `--preview` first to review what changed before committing.
+It is recommended to always use `--preview` first to review what changed before committing.
+
+---
+
+## Configuration
+
+Copy `.env.example` to `.env` and fill in the values:
+
+```bash
+# Database
+DB_PATH=conan.db
+LOG_DB_PATH=query_log.db
+
+# Flask
+FLASK_DEBUG=false
+
+# LLM providers — add keys only for the providers you want to use
+ANTHROPIC_API_KEY=your_key_here
+GEMINI_API_KEY=your_key_here
+```
+
+---
+
+## AI Query Interface
+
+The `/ai` page lets you query your collection in plain English using an agentic pipeline. Rather than translating your question into a single SQL query, the agent reasons step by step — running multiple queries if needed, inspecting intermediate results, and synthesizing a final natural language answer.
+
+Each query step is shown in the UI with the generated SQL and its results, so you can follow exactly how the agent arrived at its answer.
+
+Example queries:
+- *"How many cards do I own in total?"*
+- *"Which package am I closest to completing?"*
+- *"Do I own more rare or super rare cards?"*
+- *"Which blue character cards am I watching?"*
+
+You can choose between supported LLM providers from the dropdown. Query history is stored in a separate log database (`query_log.db`) and never touches your card data.
+
+Supported providers:
+- **Anthropic** — Claude Haiku 4.5 (default), Claude Sonnet 4.6
+- **Google Gemini** — Gemini 2.0 Flash, Gemini 2.0 Flash Lite, Gemini 2.5 Flash, Gemini 2.5 Pro
 
 ---
 

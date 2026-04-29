@@ -26,8 +26,10 @@ def create_app(db_path: str | None = None) -> Flask:
     # Register blueprints
     from app.routes.collection import bp as collection_bp
     from app.routes.api import bp as api_bp
+    from app.routes.ai import bp as ai_bp
 
     app.register_blueprint(collection_bp)
     app.register_blueprint(api_bp)
+    app.register_blueprint(ai_bp)
 
     return app

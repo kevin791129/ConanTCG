@@ -5,7 +5,6 @@ static/thumbnails/*
 # Database and data
 *db
 *.pkl
-*conan_cards.pkl
 
 # Notebook files
 *.ipynb
