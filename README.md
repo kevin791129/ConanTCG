@@ -110,6 +110,18 @@ Open [http://localhost:5000](http://localhost:5000) in your browser.
 
 ---
 
+## Keeping Your Database Up to Date
+
+When new cards are released, re-run the sync script to pull the latest data from the official site. New cards are inserted and changed fields are updated — your collection quantities and watchlist are never touched.
+
+```bash
+python scripts/sync_cards.py --preview
+```
+
+It's recommended to always use `--preview` first to review what changed before committing.
+
+---
+
 ## Sync Options
 
 | Flag | Description |
@@ -159,13 +171,13 @@ This project is a personal tool and is not affiliated with or endorsed by Takara
 
 ---
 
-## License
+## Acknowledgements
 
-MIT License — see [LICENSE](LICENSE) for details.
+- UI design prototyped with [Google Stitch](https://stitch.withgoogle.com)
+- Card data sourced from the [official Takara Tomy card list](https://www.takaratomy.co.jp/products/conan-cardgame/cardlist)
 
 ---
 
-## Acknowledgements
+## License
 
-- UI design prototyped with [Google Stitch](https://stitch.google.com)
-- Card data sourced from the [official Takara Tomy card list](https://www.takaratomy.co.jp/products/conan-cardgame/cardlist)
+MIT License — see [LICENSE](LICENSE) for details.
