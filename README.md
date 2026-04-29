@@ -16,6 +16,12 @@ A full-stack personal collection tracker for the [Detective Conan Trading Card G
 
 ---
 
+## Experimental
+
+An agentic AI query interface is in active development on the [`llm-sql-query`](https://github.com/kevin791129/ConanTCG/tree/llm-sql-query) branch. It allows querying the card collection in plain English using a multi-step Text-to-SQL pipeline with support for Anthropic and Google Gemini models.
+
+---
+
 ## Project Structure
 
 ```
