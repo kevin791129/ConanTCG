@@ -1,6 +1,6 @@
 # Detective Conan Card Game — Collection Tracker
 
-A full-stack personal collection tracker for the [Detective Conan Trading Card Game](https://www.takaratomy.co.jp/products/conan-cardgame/cardlist). Scrapes card data from the official Takara Tomy site, stores it in a normalized SQLite database, and serves it through a Flask web app with filtering, quantity tracking, a personal watchlist, and a natural language AI query interface.
+A full-stack personal collection tracker for the [Detective Conan Card Game](https://www.takaratomy.co.jp/products/conan-cardgame). Scrapes card data from the official Takara Tomy site, stores it in a normalized SQLite database, and serves it through a Flask web app with filtering, quantity tracking, a personal watchlist, and a natural language AI query interface.
 
 ---
 

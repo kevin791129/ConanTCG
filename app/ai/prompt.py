@@ -55,6 +55,11 @@ Card type names stored in the database (use exact Japanese value in SQL):
 - Case  → 事件
 - Partner   → パートナー
 
+Timestamps:
+- Every table has a `modified` column (TIMESTAMP) updated automatically on any change
+- `card.release_date` exists but is sparsely populated
+- Use `collection.modified` for queries about when you last updated your collection (e.g. "cards I added recently")
+
 At each turn respond in EXACTLY one of these two formats:
 
 QUERY: <valid SQLite SELECT statement on a single line>
@@ -85,4 +90,9 @@ Q: Which package am I closest to completing?
 → QUERY: SELECT p.code, COUNT(*) AS owned FROM card c JOIN package p ON c.package_id = p.package_id JOIN collection col ON c.card_pk = col.card_pk WHERE col.count > 0 GROUP BY p.package_id
 → (sees owned per package)
 → ANSWER: You are closest to completing EB01 at 87% (54/62 cards).
+
+Q: What is the newest booster box?
+→ QUERY: SELECT code, name FROM package WHERE code LIKE 'CT-P%' ORDER BY code DESC LIMIT 1
+→ (sees result: [{"code": "CT-P05", "name": "Detective Boys"}])
+→ ANSWER: The newest booster pack is CT-P05 — Detective Boys.
 """
