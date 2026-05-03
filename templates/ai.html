@@ -73,6 +73,22 @@
         border: 1px solid rgba(0,219,233,0.2);
     }
 
+    /* Markdown tables in answer */
+    #answerText table { border-collapse: collapse; width: 100%; font-size: 12px; }
+    #answerText thead tr { border-bottom: 1px solid rgba(0,219,233,0.3); }
+    #answerText th {
+        padding: 6px 12px; text-align: left;
+        font-family: 'Space Grotesk', sans-serif; font-size: 10px;
+        text-transform: uppercase; letter-spacing: .08em;
+        color: rgba(0,219,233,0.7); white-space: nowrap;
+    }
+    #answerText td {
+        padding: 5px 12px; color: #e5e1e4;
+        border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    #answerText tbody tr:last-child td { border-bottom: none; }
+    #answerText tbody tr:hover td { background: rgba(255,255,255,0.03); }
+
     /* Spinner */
     @keyframes spin { to { transform: rotate(360deg); } }
     .spinner { animation: spin 0.8s linear infinite; }
@@ -138,7 +154,7 @@
                         </select>
                     </div>
                     <div class="flex items-center gap-3" style="flex-shrink:0;">
-                        <span class="text-[10px] text-zinc-600 font-display select-none">⌘↵</span>
+                        <span class="text-[10px] text-zinc-600 font-display select-none">↵</span>
                         <button id="submitBtn" onclick="runQuery()"
                                 class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg
                                        bg-cyan-400/10 border border-cyan-400/30 text-cyan-400
@@ -210,7 +226,11 @@ function esc(v) {
 }
 
 function handleKey(e) {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); runQuery(); }
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        document.getElementById('queryInput').blur();
+        runQuery();
+    }
 }
 
 function setLoading(on, msg = 'Thinking…') {
@@ -219,6 +239,19 @@ function setLoading(on, msg = 'Thinking…') {
     const btn = document.getElementById('submitBtn');
     btn.disabled = on;
     btn.classList.toggle('btn-glow', on);
+}
+
+// ── SQL formatter ────────────────────────────────────────────────────────────
+function formatSQL(sql) {
+    if (sql.length < 120) return sql;
+    var INDENT = '    ';
+    var s = sql.replace(/\s+/g, ' ').trim();
+    s = s.replace(/\b(SELECT|FROM|LEFT\s+JOIN|RIGHT\s+JOIN|INNER\s+JOIN|JOIN|WHERE|GROUP\s+BY|ORDER\s+BY|HAVING|LIMIT|UNION|EXCEPT|INTERSECT)\b/gi, '\n$1');
+    s = s.replace(/^SELECT\n?([\s\S]+?)(?=\nFROM)/m, function(_, cols) {
+        return 'SELECT\n' + cols.split(',').map(function(c) { return INDENT + c.trim(); }).join(',\n');
+    });
+    s = s.replace(/\n(ON)\b/g, '\n' + INDENT + '$1');
+    return s.trim();
 }
 
 // ── Step renderer ─────────────────────────────────────────────────────────────
@@ -273,7 +306,7 @@ function buildStepHTML(step, index) {
             <!-- SQL -->
             <div class="bg-[#131315] px-4 py-3 border-b" style="border-color:rgba(255,255,255,0.04);">
                 <p class="font-display text-[9px] uppercase tracking-wider text-zinc-600 mb-1.5">SQL</p>
-                <code class="sql-block text-cyan-300/80">${esc(step.sql)}</code>
+                <code class="sql-block text-cyan-300/80">${esc(formatSQL(step.sql))}</code>
             </div>
             <!-- Results -->
             <div class="bg-[#17161a]">
@@ -295,6 +328,51 @@ function toggleStep(index) {
     const chev = document.getElementById(`step-chev-${index}`);
     body.classList.toggle('hidden', !stepStates[index]);
     chev.style.transform = stepStates[index] ? 'rotate(180deg)' : '';
+}
+
+// ── Markdown renderer (subset) ───────────────────────────────────────────────
+function renderMarkdown(text) {
+    // Split into lines to detect table blocks before escaping
+    const lines = text.split('\n');
+    const out = [];
+    let i = 0;
+    while (i < lines.length) {
+        // Detect a markdown table: a line with | that is followed by a separator row (|---|)
+        if (/\|/.test(lines[i]) && lines[i+1] && /^\s*\|?\s*[-:]+\s*\|/.test(lines[i+1])) {
+            const tableLines = [];
+            while (i < lines.length && /\|/.test(lines[i])) tableLines.push(lines[i++]);
+
+            const parseRow = row => row.replace(/^\|?|\|?$/g, '').split('|').map(c => c.trim());
+            const headers = parseRow(tableLines[0]);
+            // tableLines[1] is the separator — skip it
+            const rows = tableLines.slice(2).map(parseRow);
+
+            const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            const inlineMd = s => esc(s)
+                .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.+?)\*/g, '<em>$1</em>')
+                .replace(/`([^`]+)`/g, '<code style="font-family:monospace;font-size:0.85em;background:rgba(255,255,255,0.07);padding:1px 5px;border-radius:3px;">$1</code>');
+            const thHTML = headers.map(h => `<th>${inlineMd(h)}</th>`).join('');
+            const trHTML = rows.map(r =>
+                `<tr>${r.map(c => `<td>${inlineMd(c)}</td>`).join('')}</tr>`
+            ).join('');
+
+            out.push(`<div style="overflow-x:auto;margin:8px 0;">
+<table style="border-collapse:collapse;width:100%;font-size:12px;">
+<thead><tr>${thHTML}</tr></thead>
+<tbody>${trHTML}</tbody>
+</table></div>`);
+        } else {
+            // Regular line — escape and process inline markdown
+            let line = lines[i++]
+                .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+                .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.+?)\*/g, '<em>$1</em>')
+                .replace(/`([^`]+)`/g, '<code style="font-family:monospace;font-size:0.85em;background:rgba(255,255,255,0.07);padding:1px 5px;border-radius:3px;">$1</code>');
+            out.push(line);
+        }
+    }
+    return out.join('<br>');
 }
 
 // ── Main query runner ─────────────────────────────────────────────────────────
@@ -331,7 +409,7 @@ async function runQuery() {
 
         // Render answer
         if (data.answer) {
-            document.getElementById('answerText').textContent = data.answer;
+            document.getElementById('answerText').innerHTML = renderMarkdown(data.answer);
             show('answerPanel');
         }
 
@@ -346,14 +424,14 @@ function renderSteps(steps) {
     const container = document.getElementById('stepsContainer');
     container.innerHTML = steps.map((step, i) => buildStepHTML(step, i)).join('');
     show('stepsContainer');
-
-    // Auto-expand the last step so user sees the most recent result
-    const last = steps.length - 1;
-    stepStates[last] = true;
-    const body = document.getElementById(`step-body-${last}`);
-    const chev = document.getElementById(`step-chev-${last}`);
-    if (body) body.classList.remove('hidden');
-    if (chev) chev.style.transform = 'rotate(180deg)';
+    // Auto-expand all steps
+    steps.forEach((_, i) => {
+        stepStates[i] = true;
+        const body = document.getElementById(`step-body-${i}`);
+        const chev = document.getElementById(`step-chev-${i}`);
+        if (body) body.classList.remove('hidden');
+        if (chev) chev.style.transform = 'rotate(180deg)';
+    });
 }
 </script>
 {% endblock %}
