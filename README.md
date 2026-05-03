@@ -17,12 +17,6 @@ A full-stack personal collection tracker for the [Detective Conan Card Game](htt
 
 ---
 
-## Experimental
-
-An agentic AI query interface is in active development on the [`llm-sql-query`](https://github.com/kevin791129/ConanTCG/tree/llm-sql-query) branch. It allows querying the card collection in plain English using a multi-step Text-to-SQL pipeline with support for Anthropic and Google Gemini models.
-
----
-
 ## Project Structure
 
 ```
@@ -45,6 +39,7 @@ ConanTCG/
 │       ├── prompt.py           # System prompt and schema description
 │       ├── pipeline.py         # Agentic Text-to-SQL pipeline
 │       └── providers/
+│           ├── __init__.py     # Provider registry and factory
 │           ├── base.py         # Abstract provider interface
 │           ├── anthropic.py    # Anthropic provider
 │           └── gemini.py       # Google Gemini provider
@@ -56,9 +51,9 @@ ConanTCG/
 │   └── create_ai_query_log.py  # Initialize the AI query log database
 │
 ├── templates/
-│   ├── base.html
-│   ├── collection.html
-│   ├── watchlist.html
+│   ├── base.html               # Shared layout, virtual scroller, and filter sidebar
+│   ├── collection.html         # Card grid with quantity tracking and filters
+│   ├── watchlist.html          # Watched cards grid with filters
 │   └── ai.html                 # Natural language query page
 │
 └── static/
