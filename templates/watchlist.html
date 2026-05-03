@@ -5,7 +5,7 @@
 {% block body %}
 <div class="flex pt-16" style="height:100vh;overflow:hidden;">
     <main id="mainContent" class="flex-1 flex flex-col overflow-hidden"
-          style="margin-right:320px;transition:margin-right 0.3s ease;padding:24px 32px 0 32px;">
+          style="margin-right:0;transition:margin-right 0.3s ease;padding:24px 32px 0 32px;">
 
         <div class="mb-6 flex items-end justify-between flex-shrink-0">
             <div>
@@ -19,7 +19,7 @@
         </div>
 
         {% if cards %}
-        <div id="vs-viewport" class="overflow-y-auto rounded-xl flex-1" style="position:relative;min-height:0;">
+        <div id="vs-viewport" class="overflow-y-auto rounded-xl flex-1" style="position:relative;min-height:0;overflow-x:hidden;">
             <div id="vs-sentinel" style="position:absolute;top:0;left:0;width:1px;pointer-events:none;"></div>
             <div id="vs-grid"     style="position:absolute;top:0;left:0;width:100%;"></div>
         </div>
