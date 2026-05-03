@@ -272,10 +272,26 @@ function stepQty(cardNum, delta, btn) {
     onQuantityChange(cardNum, val, input);
 }
 function onQuantityChange(cardNum, value, inputEl) {
-    const qty = Math.max(0, parseInt(value) || 0);
+    const qty    = Math.max(0, parseInt(value) || 0);
     inputEl.value = qty;
     const c = ALL_CARDS.find(x => x.card_num === cardNum);
-    if (c) c.quantity = qty;
+    if (!c) return;
+    const prevQty = c.quantity;
+    c.quantity = qty;
+
+    // Ownership threshold crossed (0→1+ or 1+→0): re-filter so the card
+    // appears/disappears under the current ownership view.
+    const thresholdCrossed = (prevQty === 0 && qty > 0) || (prevQty > 0 && qty === 0);
+    if (thresholdCrossed && ownershipFilter !== '') {
+        applyFilters();  // rebuilds filteredCards, stats, and re-renders the grid
+    } else {
+        // No view change needed — just refresh the stats counters cheaply.
+        const collected = filteredCards.filter(x => x.quantity > 0).length;
+        const missing   = filteredCards.length - collected;
+        document.getElementById('collectedCount').textContent = collected.toLocaleString();
+        document.getElementById('missingCount').textContent   = missing.toLocaleString();
+    }
+
     fetch('/update_card_quantity', {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ card_num: cardNum, quantity: qty })

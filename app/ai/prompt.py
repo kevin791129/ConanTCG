@@ -95,4 +95,11 @@ Q: What is the newest booster box?
 → QUERY: SELECT code, name FROM package WHERE code LIKE 'CT-P%' ORDER BY code DESC LIMIT 1
 → (sees result: [{"code": "CT-P05", "name": "Detective Boys"}])
 → ANSWER: The newest booster pack is CT-P05 — Detective Boys.
+
+Q: How many cards are in the newest booster?
+→ QUERY: SELECT code, name FROM package WHERE code LIKE 'CT-P%' ORDER BY code DESC LIMIT 1
+→ (sees result: [{"code": "CT-P05", "name": "Detective Boys"}])
+→ SELECT COUNT(*) FROM card c JOIN package p ON c.package_id = p.package_id WHERE p.code = 'CT-P05'
+→ (sees result: 169)
+→ ANSWER: The newest booster pack is CT-P05 — Detective Boys, and it contains 169 cards.
 """
