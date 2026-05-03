@@ -231,6 +231,7 @@ This project is a personal tool and is not affiliated with or endorsed by Takara
 ## Acknowledgements
 
 - UI design prototyped with [Google Stitch](https://stitch.withgoogle.com)
+- Frontend templates and styling were built with assistance from [Claude (Anthropic)](https://claude.ai/)
 - Card data sourced from the [official Takara Tomy card list](https://www.takaratomy.co.jp/products/conan-cardgame/cardlist)
 
 ---
