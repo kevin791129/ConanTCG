@@ -78,6 +78,12 @@
                   {% else %}text-zinc-400 border-transparent hover:text-cyan-300 hover:border-cyan-300/40{% endif %}">
             Watchlist
         </a>
+        <a href="{{ url_for('ai.ai_query_page') }}"
+           class="font-display uppercase tracking-wider text-sm px-4 h-full flex items-center border-b-2 transition-all
+                  {% if request.endpoint == 'ai.ai_query_page' %}text-cyan-400 border-cyan-400
+                  {% else %}text-zinc-400 border-transparent hover:text-cyan-300 hover:border-cyan-300/40{% endif %}">
+            <span class="mr-1.5" style="font-size:12px;">✦</span>AI Query
+        </a>
     </nav>
 </header>
 
@@ -88,9 +94,9 @@
         class="fixed z-50 top-1/2 -translate-y-1/2 bg-[#1c1b1d] border border-white/10 border-r-0
                rounded-l-lg px-1 py-3 text-zinc-400 hover:text-cyan-400 hover:bg-[#201f21]
                transition-all duration-300"
-        style="right:320px;">
+        style="right:0;">
     <span id="sidebarToggleIcon" class="material-symbols-outlined text-[18px]"
-          style="display:block;transition:transform 0.3s;">chevron_right</span>
+          style="display:block;transition:transform 0.3s;transform:rotate(180deg);">chevron_right</span>
 </button>
 
 <!-- Sidebar -->
@@ -98,7 +104,7 @@
        class="fixed right-0 top-16 w-80 bg-[#0A0A0C] border-l border-white/10
               flex flex-col py-6 px-4 gap-4 overflow-y-auto z-40
               transition-transform duration-300 ease-in-out"
-       style="height:calc(100vh - 4rem);">
+       style="height:calc(100vh - 4rem);transform:translateX(100%);">
 
     <!-- Header -->
     <div class="flex-shrink-0">
@@ -204,7 +210,7 @@ function closeLightbox() {
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
 
 // ── Sidebar toggle ────────────────────────────────────────────────────────────
-let sidebarOpen = true;
+let sidebarOpen = false;
 function toggleSidebar() {
     sidebarOpen = !sidebarOpen;
     const sidebar = document.getElementById('filterSidebar');
@@ -222,7 +228,14 @@ function toggleSidebar() {
         btn.style.right         = '0';
         icon.style.transform    = 'rotate(180deg)';
     }
-    setTimeout(() => requestAnimationFrame(() => { if (typeof vs !== 'undefined') vs.render(); }), 310);
+    // Reflow the grid once the margin transition finishes — avoids mid-transition
+    // relayout which causes cards to overlap as column count changes.
+    const mainEl = document.getElementById('mainContent');
+    mainEl.addEventListener('transitionend', function handler(e) {
+        if (e.propertyName !== 'margin-right') return;
+        mainEl.removeEventListener('transitionend', handler);
+        if (typeof vs !== 'undefined') vs.reflow();
+    });
 }
 
 // ── Shared pill filter helpers ────────────────────────────────────────────────
@@ -315,7 +328,7 @@ const RARITY_STYLE = {
 };
 
 // ── Shared virtual scroller factory ──────────────────────────────────────────
-// Returns { render, reset } bound to the given viewport/sentinel/grid IDs.
+// Returns { render, reset, reflow } bound to the given viewport/sentinel/grid IDs.
 // getCards()      → current filtered array to render
 // buildCardHTML() → must be defined by the page
 function makeVirtualScroller(viewportId, sentinelId, gridId, getCards) {
@@ -331,6 +344,10 @@ function makeVirtualScroller(viewportId, sentinelId, gridId, getCards) {
             obs.unobserve(img);
         });
     }, { root: viewport, rootMargin: '600px' });
+
+    // Keep DOM nodes alive for KEEP_ROWS rows beyond the visible area in each
+    // direction so reverse-scrolling never destroys and recreates cards.
+    const KEEP_ROWS = 15;
 
     const rendered = new Map();
 
@@ -354,20 +371,28 @@ function makeVirtualScroller(viewportId, sentinelId, gridId, getCards) {
 
         if (!cards.length) { [...rendered.values()].forEach(el => el.remove()); rendered.clear(); return; }
 
-        const scrollTop = viewport.scrollTop;
-        const viewH     = viewport.clientHeight;
-        const startRow  = Math.max(0, Math.floor((scrollTop - GRID_PAD) / rowH) - 1);
-        const endRow    = Math.min(rows - 1, Math.ceil((scrollTop + viewH - GRID_PAD) / rowH) + 1);
-        const startIdx  = startRow * cols;
-        const endIdx    = Math.min(cards.length - 1, (endRow + 1) * cols - 1);
+        const scrollTop  = viewport.scrollTop;
+        const viewH      = viewport.clientHeight;
+        const visStart   = Math.floor((scrollTop - GRID_PAD) / rowH);
+        const visEnd     = Math.ceil((scrollTop + viewH - GRID_PAD) / rowH);
 
-        const needed = new Set();
-        for (let i = startIdx; i <= endIdx; i++) needed.add(i);
+        const renderStartRow = Math.max(0, visStart - 1);
+        const renderEndRow   = Math.min(rows - 1, visEnd + 1);
+        const keepStartRow   = Math.max(0, visStart - KEEP_ROWS);
+        const keepEndRow     = Math.min(rows - 1, visEnd + KEEP_ROWS);
 
+        const renderStart = renderStartRow * cols;
+        const renderEnd   = Math.min(cards.length - 1, (renderEndRow + 1) * cols - 1);
+        const keepStart   = keepStartRow * cols;
+        const keepEnd     = Math.min(cards.length - 1, (keepEndRow + 1) * cols - 1);
+
+        // Evict only what's outside the keep-alive window
         for (const [idx, el] of rendered) {
-            if (!needed.has(idx)) { el.remove(); rendered.delete(idx); }
+            if (idx < keepStart || idx > keepEnd) { el.remove(); rendered.delete(idx); }
         }
-        for (let i = startIdx; i <= endIdx; i++) {
+
+        // Create/reposition cards in the visible render window
+        for (let i = renderStart; i <= renderEnd; i++) {
             const c   = cards[i];
             const row = Math.floor(i / cols);
             const col = i % cols;
@@ -393,7 +418,14 @@ function makeVirtualScroller(viewportId, sentinelId, gridId, getCards) {
     let rt;
     window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => render(), 120); });
 
-    return { render, reset };
+    function reflow() {
+        // Clear all DOM nodes and re-render at current scroll position.
+        [...rendered.values()].forEach(el => el.remove());
+        rendered.clear();
+        render();
+    }
+
+    return { render, reset, reflow };
 }
 
 // ── Init shared filter state on DOM ready ─────────────────────────────────────

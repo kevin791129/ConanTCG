@@ -1,0 +1,437 @@
+{% extends "base.html" %}
+
+{% block title %}AI Query — Detective Conan Vault{% endblock %}
+
+{# No sidebar on this page #}
+{% block sidebar_package %}{% endblock %}
+{% block sidebar_ownership %}{% endblock %}
+{% block sidebar_stats %}{% endblock %}
+
+{% block head %}
+<style>
+    #filterSidebar, #sidebarToggle { display: none !important; }
+
+    #queryInput {
+        field-sizing: content;
+        min-height: 52px;
+        max-height: 200px;
+        border: none !important;
+        outline: none !important;
+        box-shadow: none !important;
+    }
+
+    /* Results table */
+    .results-table { border-collapse: collapse; width: 100%; }
+    .results-table th {
+        background: #1c1b1d;
+        color: #00dbe9;
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: .08em;
+        padding: 8px 12px;
+        text-align: left;
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+        white-space: nowrap;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+    .results-table td {
+        padding: 7px 12px;
+        font-size: 12px;
+        color: #e5e1e4;
+        border-bottom: 1px solid rgba(255,255,255,0.04);
+        white-space: nowrap;
+        max-width: 300px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .results-table tr:hover td { background: rgba(255,255,255,0.03); }
+    .results-table tr:last-child td { border-bottom: none; }
+
+    /* Step timeline */
+    .step-connector {
+        width: 1px;
+        background: rgba(255,255,255,0.08);
+        margin: 0 auto;
+        flex-shrink: 0;
+    }
+
+    /* SQL code block */
+    .sql-block {
+        font-family: 'Courier New', monospace;
+        font-size: 12px;
+        line-height: 1.6;
+        white-space: pre-wrap;
+        word-break: break-all;
+    }
+
+    /* Answer panel */
+    #answerPanel {
+        background: linear-gradient(135deg, rgba(0,219,233,0.06) 0%, rgba(0,219,233,0.02) 100%);
+        border: 1px solid rgba(0,219,233,0.2);
+    }
+
+    /* Markdown tables in answer */
+    #answerText table { border-collapse: collapse; width: 100%; font-size: 12px; }
+    #answerText thead tr { border-bottom: 1px solid rgba(0,219,233,0.3); }
+    #answerText th {
+        padding: 6px 12px; text-align: left;
+        font-family: 'Space Grotesk', sans-serif; font-size: 10px;
+        text-transform: uppercase; letter-spacing: .08em;
+        color: rgba(0,219,233,0.7); white-space: nowrap;
+    }
+    #answerText td {
+        padding: 5px 12px; color: #e5e1e4;
+        border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    #answerText tbody tr:last-child td { border-bottom: none; }
+    #answerText tbody tr:hover td { background: rgba(255,255,255,0.03); }
+
+    /* Spinner */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner { animation: spin 0.8s linear infinite; }
+
+    @keyframes glow {
+        0%,100% { box-shadow: 0 0 0 0 rgba(0,219,233,0); }
+        50%      { box-shadow: 0 0 16px 2px rgba(0,219,233,0.25); }
+    }
+    .btn-glow { animation: glow 1.6s ease-in-out infinite; }
+
+    /* Step fade-in */
+    @keyframes fadeSlideIn {
+        from { opacity: 0; transform: translateY(8px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+    .step-animate { animation: fadeSlideIn 0.25s ease-out forwards; }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="flex flex-col pt-16" style="height:100vh;overflow:hidden;">
+    <main class="flex-1 flex flex-col overflow-hidden" style="padding:32px 48px 24px;">
+
+        <!-- Heading -->
+        <div class="mb-8 flex-shrink-0">
+            <div class="flex items-center gap-3 mb-1">
+                <div class="w-8 h-8 rounded-lg bg-cyan-400/10 flex items-center justify-center">
+                    <span class="material-symbols-outlined text-cyan-400" style="font-size:18px;">psychology</span>
+                </div>
+                <h1 class="font-display text-3xl font-bold text-white tracking-tight">AI Query</h1>
+                <span class="px-2 py-0.5 rounded-full bg-yellow-400/10 border border-yellow-400/20
+                             text-yellow-400 font-display text-[9px] uppercase tracking-widest">Experimental</span>
+            </div>
+            <p class="text-zinc-500 text-sm ml-11">Ask questions about the card database in plain language.</p>
+        </div>
+
+        <!-- Input area -->
+        <div class="flex-shrink-0 mb-6">
+            <div id="inputCard"
+                 class="bg-[#1c1b1d] rounded-2xl overflow-hidden transition-colors duration-200"
+                 style="border:1px solid rgba(255,255,255,0.08);">
+                <textarea id="queryInput"
+                          placeholder="e.g. Which package am I closest to completing?"
+                          class="w-full bg-transparent text-[#e5e1e4] placeholder-zinc-600
+                                 resize-none outline-none text-sm leading-relaxed"
+                          style="padding:18px 20px 14px;display:block;border:none;box-shadow:none;border-radius:0;"
+                          onkeydown="handleKey(event)"
+                          onfocus="document.getElementById('inputCard').style.borderColor='rgba(0,219,233,0.4)'"
+                          onblur="document.getElementById('inputCard').style.borderColor='rgba(255,255,255,0.08)'"></textarea>
+                <div style="height:1px;background:rgba(255,255,255,0.06);margin:0 16px;"></div>
+                <div class="flex items-center justify-between" style="padding:8px 16px;">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-zinc-500" style="font-size:15px;flex-shrink:0;">smart_toy</span>
+                        <select id="modelSelect"
+                                class="text-zinc-300 text-xs font-display outline-none cursor-pointer transition-colors"
+                                style="background:#1c1b1d;border:none;min-width:200px;
+                                       -webkit-appearance:auto;appearance:auto;color-scheme:dark;">
+                            {% for model in models %}
+                            <option value="{{ model.id }}" {% if model.id == default_model %}selected{% endif %}>
+                                {{ model.label }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-3" style="flex-shrink:0;">
+                        <span class="text-[10px] text-zinc-600 font-display select-none">↵</span>
+                        <button id="submitBtn" onclick="runQuery()"
+                                class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg
+                                       bg-cyan-400/10 border border-cyan-400/30 text-cyan-400
+                                       font-display text-xs uppercase tracking-wider
+                                       hover:bg-cyan-400/20 active:scale-95 transition-all duration-150">
+                            <span class="material-symbols-outlined" style="font-size:14px;line-height:1;">send</span>
+                            Run
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results area (scrollable) -->
+        <div id="resultsArea" class="flex-1 overflow-y-auto min-h-0 flex flex-col gap-3">
+
+            <!-- Loading state -->
+            <div id="loadingState" class="hidden flex-shrink-0">
+                <div class="flex items-center gap-3 px-4 py-3 rounded-xl bg-[#1c1b1d] border border-white/5">
+                    <svg class="spinner text-cyan-400" style="width:16px;height:16px;" viewBox="0 0 24 24" fill="none">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2.5"
+                                stroke-dasharray="31.4" stroke-dashoffset="10"/>
+                    </svg>
+                    <span id="loadingMsg" class="text-zinc-400 text-sm font-display">Thinking…</span>
+                </div>
+            </div>
+
+            <!-- Error state -->
+            <div id="errorState" class="hidden flex-shrink-0">
+                <div class="flex items-start gap-3 px-4 py-3 rounded-xl bg-red-500/5 border border-red-500/20">
+                    <span class="material-symbols-outlined text-red-400 flex-shrink-0" style="font-size:18px;margin-top:1px;">error</span>
+                    <p id="errorMsg" class="text-red-400 text-sm"></p>
+                </div>
+            </div>
+
+            <!-- Steps container — injected dynamically -->
+            <div id="stepsContainer" class="hidden flex-shrink-0 flex flex-col gap-2"></div>
+
+            <!-- Answer panel -->
+            <div id="answerPanel" class="hidden flex-shrink-0 rounded-xl p-4">
+                <div class="flex items-start gap-3">
+                    <div class="w-7 h-7 rounded-lg bg-cyan-400/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span class="material-symbols-outlined text-cyan-400" style="font-size:15px;">auto_awesome</span>
+                    </div>
+                    <div>
+                        <p class="font-display text-[10px] uppercase tracking-wider text-cyan-400/60 mb-1">Answer</p>
+                        <p id="answerText" class="text-[#e5e1e4] text-sm leading-relaxed"></p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function hide(...ids) { ids.forEach(id => document.getElementById(id).classList.add('hidden')); }
+function show(...ids) { ids.forEach(id => document.getElementById(id).classList.remove('hidden')); }
+
+function esc(v) {
+    if (v === null || v === undefined)
+        return '<span style="color:#52525b;font-style:italic;">null</span>';
+    return String(v)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;');
+}
+
+function handleKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        document.getElementById('queryInput').blur();
+        runQuery();
+    }
+}
+
+function setLoading(on, msg = 'Thinking…') {
+    document.getElementById('loadingState').classList.toggle('hidden', !on);
+    document.getElementById('loadingMsg').textContent = msg;
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = on;
+    btn.classList.toggle('btn-glow', on);
+}
+
+// ── SQL formatter ────────────────────────────────────────────────────────────
+function formatSQL(sql) {
+    if (sql.length < 120) return sql;
+    var INDENT = '    ';
+    var s = sql.replace(/\s+/g, ' ').trim();
+    s = s.replace(/\b(SELECT|FROM|LEFT\s+JOIN|RIGHT\s+JOIN|INNER\s+JOIN|JOIN|WHERE|GROUP\s+BY|ORDER\s+BY|HAVING|LIMIT|UNION|EXCEPT|INTERSECT)\b/gi, '\n$1');
+    s = s.replace(/^SELECT\n?([\s\S]+?)(?=\nFROM)/m, function(_, cols) {
+        return 'SELECT\n' + cols.split(',').map(function(c) { return INDENT + c.trim(); }).join(',\n');
+    });
+    s = s.replace(/\n(ON)\b/g, '\n' + INDENT + '$1');
+    return s.trim();
+}
+
+// ── Step renderer ─────────────────────────────────────────────────────────────
+function buildStepHTML(step, index) {
+    const rows    = step.results || [];
+    const rowCount = step.row_count ?? rows.length;
+    const cols    = rows.length ? Object.keys(rows[0]) : [];
+    const stepId  = `step-${index}`;
+    const bodyId  = `step-body-${index}`;
+    const chevId  = `step-chev-${index}`;
+
+    const tableHTML = rows.length === 0
+        ? `<p class="text-zinc-500 text-xs px-4 py-3">No rows returned.</p>`
+        : `<div class="overflow-x-auto" style="max-height:260px;overflow-y:auto;">
+               <table class="results-table">
+                   <thead><tr>${cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead>
+                   <tbody>
+                       ${rows.map(row =>
+                           `<tr>${cols.map(c => `<td title="${esc(row[c])}">${esc(row[c])}</td>`).join('')}</tr>`
+                       ).join('')}
+                   </tbody>
+               </table>
+           </div>`;
+
+    return `
+    <div id="${stepId}" class="step-animate rounded-xl overflow-hidden border"
+         style="border-color:rgba(255,255,255,0.06);">
+
+        <!-- Step header (clickable) -->
+        <button onclick="toggleStep(${index})"
+                class="w-full flex items-center justify-between px-4 py-2.5
+                       bg-[#1c1b1d] hover:bg-[#232123] transition-colors duration-150">
+            <div class="flex items-center gap-2.5">
+                <!-- Step badge -->
+                <span class="w-5 h-5 rounded-full bg-zinc-700 flex items-center justify-center
+                             font-display text-[9px] font-bold text-zinc-300 flex-shrink-0">
+                    ${index + 1}
+                </span>
+                <span class="material-symbols-outlined text-zinc-500" style="font-size:14px;">database</span>
+                <span class="font-display text-[10px] uppercase tracking-wider text-zinc-500">Query ${index + 1}</span>
+                <span class="font-display text-[10px] text-zinc-600">
+                    — ${rowCount.toLocaleString()} row${rowCount !== 1 ? 's' : ''}
+                    ${rowCount > rows.length ? ' (truncated)' : ''}
+                </span>
+            </div>
+            <span id="${chevId}" class="material-symbols-outlined text-zinc-600"
+                  style="font-size:16px;transition:transform 0.2s;">expand_more</span>
+        </button>
+
+        <!-- Collapsible body -->
+        <div id="${bodyId}" class="hidden border-t" style="border-color:rgba(255,255,255,0.04);">
+            <!-- SQL -->
+            <div class="bg-[#131315] px-4 py-3 border-b" style="border-color:rgba(255,255,255,0.04);">
+                <p class="font-display text-[9px] uppercase tracking-wider text-zinc-600 mb-1.5">SQL</p>
+                <code class="sql-block text-cyan-300/80">${esc(formatSQL(step.sql))}</code>
+            </div>
+            <!-- Results -->
+            <div class="bg-[#17161a]">
+                <div class="flex items-center gap-2 px-4 py-2 border-b"
+                     style="border-color:rgba(255,255,255,0.04);">
+                    <span class="material-symbols-outlined text-zinc-600" style="font-size:13px;">table</span>
+                    <span class="font-display text-[9px] uppercase tracking-wider text-zinc-600">Results</span>
+                </div>
+                ${tableHTML}
+            </div>
+        </div>
+    </div>`;
+}
+
+const stepStates = {};
+function toggleStep(index) {
+    stepStates[index] = !stepStates[index];
+    const body = document.getElementById(`step-body-${index}`);
+    const chev = document.getElementById(`step-chev-${index}`);
+    body.classList.toggle('hidden', !stepStates[index]);
+    chev.style.transform = stepStates[index] ? 'rotate(180deg)' : '';
+}
+
+// ── Markdown renderer (subset) ───────────────────────────────────────────────
+function renderMarkdown(text) {
+    // Split into lines to detect table blocks before escaping
+    const lines = text.split('\n');
+    const out = [];
+    let i = 0;
+    while (i < lines.length) {
+        // Detect a markdown table: a line with | that is followed by a separator row (|---|)
+        if (/\|/.test(lines[i]) && lines[i+1] && /^\s*\|?\s*[-:]+\s*\|/.test(lines[i+1])) {
+            const tableLines = [];
+            while (i < lines.length && /\|/.test(lines[i])) tableLines.push(lines[i++]);
+
+            const parseRow = row => row.replace(/^\|?|\|?$/g, '').split('|').map(c => c.trim());
+            const headers = parseRow(tableLines[0]);
+            // tableLines[1] is the separator — skip it
+            const rows = tableLines.slice(2).map(parseRow);
+
+            const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            const inlineMd = s => esc(s)
+                .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.+?)\*/g, '<em>$1</em>')
+                .replace(/`([^`]+)`/g, '<code style="font-family:monospace;font-size:0.85em;background:rgba(255,255,255,0.07);padding:1px 5px;border-radius:3px;">$1</code>');
+            const thHTML = headers.map(h => `<th>${inlineMd(h)}</th>`).join('');
+            const trHTML = rows.map(r =>
+                `<tr>${r.map(c => `<td>${inlineMd(c)}</td>`).join('')}</tr>`
+            ).join('');
+
+            out.push(`<div style="overflow-x:auto;margin:8px 0;">
+<table style="border-collapse:collapse;width:100%;font-size:12px;">
+<thead><tr>${thHTML}</tr></thead>
+<tbody>${trHTML}</tbody>
+</table></div>`);
+        } else {
+            // Regular line — escape and process inline markdown
+            let line = lines[i++]
+                .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+                .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.+?)\*/g, '<em>$1</em>')
+                .replace(/`([^`]+)`/g, '<code style="font-family:monospace;font-size:0.85em;background:rgba(255,255,255,0.07);padding:1px 5px;border-radius:3px;">$1</code>');
+            out.push(line);
+        }
+    }
+    return out.join('<br>');
+}
+
+// ── Main query runner ─────────────────────────────────────────────────────────
+async function runQuery() {
+    const query = document.getElementById('queryInput').value.trim();
+    if (!query) return;
+    const model = document.getElementById('modelSelect').value;
+
+    // Reset UI
+    hide('errorState', 'stepsContainer', 'answerPanel');
+    document.getElementById('stepsContainer').innerHTML = '';
+    document.getElementById('stepsContainer').classList.add('hidden');
+    setLoading(true, 'Thinking…');
+
+    try {
+        const res  = await fetch('/ai/query', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query, model }),
+        });
+        const data = await res.json();
+        setLoading(false);
+
+        if (!data.success) {
+            document.getElementById('errorMsg').textContent = data.message || 'An error occurred.';
+            show('errorState');
+            // Still show any steps that ran before the failure
+            if (data.steps && data.steps.length > 0) renderSteps(data.steps);
+            return;
+        }
+
+        // Render steps
+        if (data.steps && data.steps.length > 0) renderSteps(data.steps);
+
+        // Render answer
+        if (data.answer) {
+            document.getElementById('answerText').innerHTML = renderMarkdown(data.answer);
+            show('answerPanel');
+        }
+
+    } catch (err) {
+        setLoading(false);
+        document.getElementById('errorMsg').textContent = 'Network error. Please try again.';
+        show('errorState');
+    }
+}
+
+function renderSteps(steps) {
+    const container = document.getElementById('stepsContainer');
+    container.innerHTML = steps.map((step, i) => buildStepHTML(step, i)).join('');
+    show('stepsContainer');
+    // Auto-expand all steps
+    steps.forEach((_, i) => {
+        stepStates[i] = true;
+        const body = document.getElementById(`step-body-${i}`);
+        const chev = document.getElementById(`step-chev-${i}`);
+        if (body) body.classList.remove('hidden');
+        if (chev) chev.style.transform = 'rotate(180deg)';
+    });
+}
+</script>
+{% endblock %}

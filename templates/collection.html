@@ -5,7 +5,7 @@
 {% block body %}
 <div class="flex pt-16" style="height:100vh;overflow:hidden;">
     <main id="mainContent" class="flex-1 flex flex-col overflow-hidden"
-          style="margin-right:320px;transition:margin-right 0.3s ease;padding:24px 32px 0 32px;">
+          style="margin-right:0;transition:margin-right 0.3s ease;padding:24px 32px 0 32px;">
 
         <!-- Heading + count -->
         <div class="mb-6 flex items-end justify-between flex-shrink-0">
@@ -31,7 +31,7 @@
         </div>
 
         <!-- Virtual scroll viewport -->
-        <div id="vs-viewport" class="overflow-y-auto rounded-xl flex-1" style="position:relative;min-height:0;">
+        <div id="vs-viewport" class="overflow-y-auto rounded-xl flex-1" style="position:relative;min-height:0;overflow-x:hidden;">
             <div id="vs-sentinel" style="position:absolute;top:0;left:0;width:1px;pointer-events:none;"></div>
             <div id="vs-grid"     style="position:absolute;top:0;left:0;width:100%;"></div>
         </div>
@@ -272,10 +272,26 @@ function stepQty(cardNum, delta, btn) {
     onQuantityChange(cardNum, val, input);
 }
 function onQuantityChange(cardNum, value, inputEl) {
-    const qty = Math.max(0, parseInt(value) || 0);
+    const qty    = Math.max(0, parseInt(value) || 0);
     inputEl.value = qty;
     const c = ALL_CARDS.find(x => x.card_num === cardNum);
-    if (c) c.quantity = qty;
+    if (!c) return;
+    const prevQty = c.quantity;
+    c.quantity = qty;
+
+    // Ownership threshold crossed (0→1+ or 1+→0): re-filter so the card
+    // appears/disappears under the current ownership view.
+    const thresholdCrossed = (prevQty === 0 && qty > 0) || (prevQty > 0 && qty === 0);
+    if (thresholdCrossed && ownershipFilter !== '') {
+        applyFilters();  // rebuilds filteredCards, stats, and re-renders the grid
+    } else {
+        // No view change needed — just refresh the stats counters cheaply.
+        const collected = filteredCards.filter(x => x.quantity > 0).length;
+        const missing   = filteredCards.length - collected;
+        document.getElementById('collectedCount').textContent = collected.toLocaleString();
+        document.getElementById('missingCount').textContent   = missing.toLocaleString();
+    }
+
     fetch('/update_card_quantity', {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ card_num: cardNum, quantity: qty })
