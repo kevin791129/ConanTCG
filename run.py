@@ -37,4 +37,4 @@ if __name__ == "__main__":
     from app import create_app
 
     flask_app = create_app(db_path=args.db_path)
-    flask_app.run(host="0.0.0.0", port=args.port, debug=args.debug)
+    flask_app.run(host="0.0.0.0", port=args.port, debug=args.debug, threaded=True)

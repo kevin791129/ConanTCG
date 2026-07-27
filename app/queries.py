@@ -138,36 +138,22 @@ def fetch_watchlist(conn: sqlite3.Connection) -> list[dict]:
 
 def upsert_quantity(conn: sqlite3.Connection, card_pk: int, quantity: int) -> None:
     """Insert or update a card's owned quantity in the collection."""
-    exists = conn.execute(
-        "SELECT 1 FROM collection WHERE card_pk = ?", (card_pk,)
-    ).fetchone()
-
-    if exists:
-        conn.execute(
-            "UPDATE collection SET count = ? WHERE card_pk = ?",
-            (quantity, card_pk),
-        )
-    else:
-        conn.execute(
-            "INSERT INTO collection (card_pk, count, watched) VALUES (?, ?, 0)",
-            (card_pk, quantity),
-        )
+    conn.execute(
+        """
+        INSERT INTO collection (card_pk, count, watched) VALUES (?, ?, 0)
+        ON CONFLICT(card_pk) DO UPDATE SET count = excluded.count
+        """,
+        (card_pk, quantity),
+    )
 
 
 def upsert_watched(conn: sqlite3.Connection, card_pk: int, watched: bool) -> None:
     """Insert or update a card's watched flag in the collection."""
     watched_int = 1 if watched else 0
-    exists = conn.execute(
-        "SELECT 1 FROM collection WHERE card_pk = ?", (card_pk,)
-    ).fetchone()
-
-    if exists:
-        conn.execute(
-            "UPDATE collection SET watched = ? WHERE card_pk = ?",
-            (watched_int, card_pk),
-        )
-    else:
-        conn.execute(
-            "INSERT INTO collection (card_pk, count, watched) VALUES (?, 0, ?)",
-            (card_pk, watched_int),
-        )
+    conn.execute(
+        """
+        INSERT INTO collection (card_pk, count, watched) VALUES (?, 0, ?)
+        ON CONFLICT(card_pk) DO UPDATE SET watched = excluded.watched
+        """,
+        (card_pk, watched_int),
+    )

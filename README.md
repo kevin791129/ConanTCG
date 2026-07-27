@@ -118,7 +118,18 @@ Scrape and commit directly:
 python scripts/sync_cards.py
 ```
 
-### 7. Run the app
+### 7. Build the frontend CSS
+
+The UI uses Tailwind CSS, compiled to a static stylesheet (no CDN dependency at runtime):
+
+```bash
+npm install
+npm run build:css
+```
+
+Re-run `npm run build:css` whenever you add new Tailwind classes to a template, or use `npm run watch:css` while actively editing templates.
+
+### 8. Run the app
 
 ```bash
 python run.py

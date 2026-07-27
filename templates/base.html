@@ -4,41 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Detective Conan TCG{% endblock %}</title>
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.build.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/cards.css') }}">
-    <script id="tailwind-config">
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    colors: {
-                        "surface":                  "#131315",
-                        "surface-container-low":    "#1c1b1d",
-                        "surface-container":        "#201f21",
-                        "surface-container-high":   "#2a2a2c",
-                        "surface-container-highest":"#353437",
-                        "on-surface":               "#e5e1e4",
-                        "on-surface-variant":       "#b9cacb",
-                        "outline":                  "#849495",
-                        "outline-variant":          "#3b494b",
-                        "primary":                  "#dbfcff",
-                        "primary-container":        "#00f0ff",
-                        "on-primary":               "#00363a",
-                        "secondary":                "#e5b4ff",
-                        "secondary-container":      "#ad00fe",
-                        "on-secondary":             "#4f0077",
-                        "tertiary-fixed-dim":       "#eac324",
-                    },
-                    fontFamily: {
-                        display: ["Space Grotesk", "sans-serif"],
-                        body:    ["DM Sans", "sans-serif"],
-                    },
-                }
-            }
-        }
-    </script>
     <style>
         * { font-family: 'DM Sans', sans-serif; }
         h1, h2, h3, .font-display { font-family: 'Space Grotesk', sans-serif; }
@@ -327,6 +296,38 @@ const RARITY_STYLE = {
     SEC:'bg-[#160d2e] text-yellow-300 border-[#5f27cd]/30',
 };
 
+// ── Shared card shell (thumbnail + id/number + rarity badge) ──────────────────
+// footerHTML is the page-specific action row (qty stepper vs. unwatch button).
+function buildCardShell(c, footerHTML) {
+    const rc  = RARITY_STYLE[c.rarity] || 'bg-zinc-800 text-zinc-400 border-zinc-600/20';
+    const img = c.thumb
+        ? `<img data-src="${c.thumb}" data-fullres="${c.fullres}" alt="Card ${c.card_id}"
+                class="lazy cursor-zoom-in"
+                style="display:block;width:${INNER_W}px;height:${IMG_H}px;object-fit:cover;"
+                onclick="openLightbox(this)" onerror="this.style.display='none'">`
+        : `<span style="color:#52525b;font-size:11px;">No Image</span>`;
+    return `
+    <div class="vc-card group flex flex-col bg-[#1c1b1d] rounded-xl border border-white/5
+                hover:border-cyan-400/40 transition-colors duration-200"
+         style="width:${CARD_W}px;height:${CARD_H}px;box-sizing:border-box;padding:4px;overflow:hidden;"
+         data-card-num="${c.card_num}">
+        <div class="rounded-lg border border-white/10 overflow-hidden flex-shrink-0"
+             style="width:${INNER_W}px;height:${IMG_H}px;background:#18181b;">${img}</div>
+        <div style="padding:5px 4px 3px;flex-shrink:0;">
+            <div class="flex justify-between items-baseline" style="margin-bottom:4px;">
+                <span class="font-display font-bold text-cyan-400"
+                      style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;">${c.card_id}</span>
+                <span class="font-display text-zinc-500" style="font-size:10px;">${c.card_num}</span>
+            </div>
+            <div class="flex justify-between items-center">
+                <span class="inline-flex font-display font-bold uppercase rounded-full border ${rc}"
+                      style="font-size:9px;padding:1px 6px;">${c.rarity}</span>
+                ${footerHTML}
+            </div>
+        </div>
+    </div>`;
+}
+
 // ── Shared virtual scroller factory ──────────────────────────────────────────
 // Returns { render, reset, reflow } bound to the given viewport/sentinel/grid IDs.
 // getCards()      → current filtered array to render
@@ -414,16 +415,16 @@ function makeVirtualScroller(viewportId, sentinelId, gridId, getCards) {
         render();
     }
 
-    viewport.addEventListener('scroll', render, { passive: true });
-    let rt;
-    window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => render(), 120); });
-
     function reflow() {
         // Clear all DOM nodes and re-render at current scroll position.
         [...rendered.values()].forEach(el => el.remove());
         rendered.clear();
         render();
     }
+
+    viewport.addEventListener('scroll', render, { passive: true });
+    let rt;
+    window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => reflow(), 120); });
 
     return { render, reset, reflow };
 }

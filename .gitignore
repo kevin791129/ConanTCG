@@ -16,3 +16,7 @@ static/thumbnails/*
 __pycache__/
 *.pyc
 .venv/
+
+# Node / Tailwind build
+node_modules/
+static/css/tailwind.build.css

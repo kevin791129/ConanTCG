@@ -213,31 +213,9 @@ function applyFilters() {
 
 // ── Card HTML ─────────────────────────────────────────────────────────────────
 function buildCardHTML(c, idx) {
-    const rc      = RARITY_STYLE[c.rarity] || 'bg-zinc-800 text-zinc-400 border-zinc-600/20';
     const eyeFill = c.watched ? 'fill-icon text-cyan-400' : 'text-zinc-500';
     const eyeOp   = c.watched ? '1' : '0.35';
-    const img     = c.thumb
-        ? `<img data-src="${c.thumb}" data-fullres="${c.fullres}" alt="Card ${c.card_id}"
-                class="lazy cursor-zoom-in"
-                style="display:block;width:${INNER_W}px;height:${IMG_H}px;object-fit:cover;"
-                onclick="openLightbox(this)" onerror="this.style.display='none'">`
-        : `<span style="color:#52525b;font-size:11px;">No Image</span>`;
-    return `
-    <div class="vc-card group flex flex-col bg-[#1c1b1d] rounded-xl border border-white/5
-                hover:border-cyan-400/40 transition-colors duration-200"
-         style="width:${CARD_W}px;height:${CARD_H}px;box-sizing:border-box;padding:4px;overflow:hidden;"
-         data-card-num="${c.card_num}">
-        <div class="rounded-lg border border-white/10 overflow-hidden flex-shrink-0"
-             style="width:${INNER_W}px;height:${IMG_H}px;background:#18181b;">${img}</div>
-        <div style="padding:5px 4px 3px;flex-shrink:0;">
-            <div class="flex justify-between items-baseline" style="margin-bottom:4px;">
-                <span class="font-display font-bold text-cyan-400"
-                      style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;">${c.card_id}</span>
-                <span class="font-display text-zinc-500" style="font-size:10px;">${c.card_num}</span>
-            </div>
-            <div class="flex justify-between items-center">
-                <span class="inline-flex font-display font-bold uppercase rounded-full border ${rc}"
-                      style="font-size:9px;padding:1px 6px;">${c.rarity}</span>
+    const footer  = `
                 <div class="flex items-center" style="gap:3px;height:24px;">
                     <button tabindex="-1" onclick="stepQty('${c.card_num}',-1,this)"
                             class="flex-shrink-0 flex items-center justify-center rounded bg-[#353437] border border-white/10 hover:border-cyan-400/40 text-zinc-300 hover:text-cyan-400 transition-colors"
@@ -255,10 +233,8 @@ function buildCardHTML(c, idx) {
                             title="${c.watched?'Unwatch':'Watch'}">
                         <span class="material-symbols-outlined ${eyeFill}" style="font-size:16px;line-height:1;display:block;">visibility</span>
                     </button>
-                </div>
-            </div>
-        </div>
-    </div>`;
+                </div>`;
+    return buildCardShell(c, footer);
 }
 
 // ── Virtual scroller ──────────────────────────────────────────────────────────
@@ -292,10 +268,32 @@ function onQuantityChange(cardNum, value, inputEl) {
         document.getElementById('missingCount').textContent   = missing.toLocaleString();
     }
 
+    sendQuantityUpdate(cardNum, qty);
+}
+
+// In-flight tracking per card so rapid +/- clicks can't complete out of
+// order: while a request is pending, only the latest value is queued and
+// sent once it resolves (older intermediate values are simply skipped).
+const pendingQtyUpdates = {};
+function sendQuantityUpdate(cardNum, qty) {
+    let state = pendingQtyUpdates[cardNum];
+    if (!state) state = pendingQtyUpdates[cardNum] = { inFlight: false, nextValue: null };
+
+    if (state.inFlight) { state.nextValue = qty; return; }
+
+    state.inFlight = true;
     fetch('/update_card_quantity', {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ card_num: cardNum, quantity: qty })
-    }).then(r=>r.json()).then(d=>{ if(!d.success) console.error(d.message); }).catch(console.error);
+    }).then(r=>r.json()).then(d=>{ if(!d.success) console.error(d.message); }).catch(console.error)
+      .finally(() => {
+          state.inFlight = false;
+          if (state.nextValue !== null) {
+              const next = state.nextValue;
+              state.nextValue = null;
+              sendQuantityUpdate(cardNum, next);
+          }
+      });
 }
 
 // ── Watch toggle ──────────────────────────────────────────────────────────────

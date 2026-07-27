@@ -1,0 +1,11 @@
+{
+  "name": "conan-tcg-frontend",
+  "private": true,
+  "scripts": {
+    "build:css": "tailwindcss -i ./static/css/tailwind.src.css -o ./static/css/tailwind.build.css --minify",
+    "watch:css": "tailwindcss -i ./static/css/tailwind.src.css -o ./static/css/tailwind.build.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.1"
+  }
+}

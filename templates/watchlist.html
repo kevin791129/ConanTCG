@@ -101,37 +101,13 @@ function applyFilters() {
 
 // ── Card HTML ─────────────────────────────────────────────────────────────────
 function buildCardHTML(c) {
-    const rc  = RARITY_STYLE[c.rarity] || 'bg-zinc-800 text-zinc-400 border-zinc-600/20';
-    const img = c.thumb
-        ? `<img data-src="${c.thumb}" data-fullres="${c.fullres}" alt="Card ${c.card_id}"
-                class="lazy cursor-zoom-in"
-                style="display:block;width:${INNER_W}px;height:${IMG_H}px;object-fit:cover;"
-                onclick="openLightbox(this)" onerror="this.style.display='none'">`
-        : `<span style="color:#52525b;font-size:11px;">No Image</span>`;
-    return `
-    <div class="vc-card group flex flex-col bg-[#1c1b1d] rounded-xl border border-white/5
-                hover:border-cyan-400/40 transition-colors duration-200"
-         style="width:${CARD_W}px;height:${CARD_H}px;box-sizing:border-box;padding:4px;overflow:hidden;"
-         data-card-num="${c.card_num}">
-        <div class="rounded-lg border border-white/10 overflow-hidden flex-shrink-0"
-             style="width:${INNER_W}px;height:${IMG_H}px;background:#18181b;">${img}</div>
-        <div style="padding:5px 4px 3px;flex-shrink:0;">
-            <div class="flex justify-between items-baseline" style="margin-bottom:4px;">
-                <span class="font-display font-bold text-cyan-400"
-                      style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;">${c.card_id}</span>
-                <span class="font-display text-zinc-500" style="font-size:10px;">${c.card_num}</span>
-            </div>
-            <div class="flex justify-between items-center">
-                <span class="inline-flex font-display font-bold uppercase rounded-full border ${rc}"
-                      style="font-size:9px;padding:1px 6px;">${c.rarity}</span>
+    const footer = `
                 <button tabindex="-1" onclick="unwatchCard('${c.card_num}',this)"
                         class="flex items-center justify-center text-cyan-400/60 hover:text-red-400 transition-colors"
                         style="width:28px;height:28px;padding:0;" title="Remove from watchlist">
                     <span class="material-symbols-outlined fill-icon" style="font-size:18px;line-height:1;display:block;">visibility_off</span>
-                </button>
-            </div>
-        </div>
-    </div>`;
+                </button>`;
+    return buildCardShell(c, footer);
 }
 
 // ── Virtual scroller ──────────────────────────────────────────────────────────
