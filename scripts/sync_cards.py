@@ -484,9 +484,14 @@ class CardImporter:
         if len(parse) == 2:
             code = parse[0]
             name = parse[1]
-        else:
+        elif parse[0][:2] == "PR":
             code = "PR"
             name = parse[0]
+        elif parse[0][:2] == "SP":
+            code = "SP"
+            name = parse[0]
+        else:
+            raise ValueError("unresolved package name")
 
         cached = self.lookup_cache["package"].get(code)
         if cached is not None:
@@ -1009,11 +1014,15 @@ class CardScraper:
         self,
         card_url_template: str,
         start_page: int = 1,
+        end_page: int | None = None,
         sleep_seconds: float = 1.0,
         timeout: int = 20,
     ):
+        if end_page is not None and end_page < start_page:
+            raise ValueError(f"end_page ({end_page}) must be >= start_page ({start_page})")
         self.card_url_template = card_url_template
         self.start_page = start_page
+        self.end_page = end_page
         self.sleep_seconds = sleep_seconds
         self.timeout = timeout
         self.session = requests.Session()
@@ -1042,6 +1051,8 @@ class CardScraper:
             logging.info("Fetched page %s with %s cards", page, len(cards))
 
             if page >= last_page:
+                break
+            if self.end_page is not None and page >= self.end_page:
                 break
 
             page += 1
@@ -1262,6 +1273,12 @@ def build_parser() -> argparse.ArgumentParser:
         help=f"Start page (default: {DEFAULT_START_PAGE})",
     )
     parser.add_argument(
+        "--end-page",
+        type=int,
+        default=None,
+        help="Last page to scrape, inclusive (default: scrape through the API's last page)",
+    )
+    parser.add_argument(
         "--sleep",
         type=float,
         default=DEFAULT_SLEEP_SECONDS,
@@ -1352,6 +1369,10 @@ def main() -> int:
     args = parser.parse_args()
     if args.unpickle_cards and args.scrape_only:
         parser.error("Argument --scrape-only cannot be used with --unpickle-cards")
+    if args.end_page is not None and args.end_page < args.start_page:
+        parser.error(
+            f"Argument --end-page ({args.end_page}) cannot be less than --start-page ({args.start_page})"
+        )
 
     configure_logging(args.verbose)
 
@@ -1364,6 +1385,7 @@ def main() -> int:
     scraper = CardScraper(
         card_url_template=args.url,
         start_page=args.start_page,
+        end_page=args.end_page,
         sleep_seconds=args.sleep,
         timeout=args.timeout,
     )
